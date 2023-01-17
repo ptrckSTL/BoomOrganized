@@ -1248,7 +1248,6 @@ class ThreadActivity : SimpleActivity() {
                 }
             }
             clearCurrentMessage()
-
         } catch (e: Exception) {
             showErrorToast(e)
         } catch (e: Error) {

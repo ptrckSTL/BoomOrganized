@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main_coordinator"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    >
 
     <com.simplemobiletools.commons.views.MySearchMenu
         android:id="@+id/main_menu"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        />
 
     <RelativeLayout
         android:id="@+id/main_nested_scrollview"
@@ -17,17 +20,20 @@
         android:layout_height="wrap_content"
         android:fillViewport="true"
         android:scrollbars="none"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        >
 
         <androidx.coordinatorlayout.widget.CoordinatorLayout
             android:id="@+id/main_coordinator_wrapper"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            >
 
             <RelativeLayout
                 android:id="@+id/main_holder"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="match_parent"
+                >
 
                 <com.google.android.material.progressindicator.LinearProgressIndicator
                     android:id="@+id/conversations_progress_bar"
@@ -39,7 +45,8 @@
                     app:hideAnimationBehavior="outward"
                     app:showAnimationBehavior="inward"
                     app:showDelay="250"
-                    tools:visibility="visible" />
+                    tools:visibility="visible"
+                    />
 
                 <com.simplemobiletools.commons.views.MyTextView
                     android:id="@+id/no_conversations_placeholder"
@@ -54,7 +61,8 @@
                     android:text="@string/no_conversations_found"
                     android:textSize="@dimen/bigger_text_size"
                     android:textStyle="italic"
-                    android:visibility="gone" />
+                    android:visibility="gone"
+                    />
 
                 <com.simplemobiletools.commons.views.MyTextView
                     android:id="@+id/no_conversations_placeholder_2"
@@ -67,12 +75,14 @@
                     android:padding="@dimen/activity_margin"
                     android:text="@string/start_conversation"
                     android:textSize="@dimen/bigger_text_size"
-                    android:visibility="gone" />
+                    android:visibility="gone"
+                    />
 
                 <com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
                     android:id="@+id/conversations_fastscroller"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    >
 
                     <com.simplemobiletools.commons.views.MyRecyclerView
                         android:id="@+id/conversations_list"
@@ -82,7 +92,8 @@
                         android:layoutAnimation="@anim/layout_animation"
                         android:overScrollMode="ifContentScrolls"
                         android:scrollbars="none"
-                        app:layoutManager="com.simplemobiletools.commons.views.MyLinearLayoutManager" />
+                        app:layoutManager="com.simplemobiletools.commons.views.MyLinearLayoutManager"
+                        />
 
                 </com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller>
             </RelativeLayout>
@@ -93,7 +104,8 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:alpha="0"
-            android:visibility="gone">
+            android:visibility="gone"
+            >
 
             <com.simplemobiletools.commons.views.MyTextView
                 android:id="@+id/search_placeholder"
@@ -107,7 +119,8 @@
                 android:paddingEnd="@dimen/activity_margin"
                 android:text="@string/no_items_found"
                 android:textSize="@dimen/bigger_text_size"
-                android:textStyle="italic" />
+                android:textStyle="italic"
+                />
 
             <com.simplemobiletools.commons.views.MyTextView
                 android:id="@+id/search_placeholder_2"
@@ -123,7 +136,8 @@
                 android:paddingBottom="@dimen/medium_margin"
                 android:text="@string/type_2_characters"
                 android:textSize="@dimen/bigger_text_size"
-                android:textStyle="italic" />
+                android:textStyle="italic"
+                />
 
             <com.simplemobiletools.commons.views.MyRecyclerView
                 android:id="@+id/search_results_list"
@@ -131,17 +145,36 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:scrollbars="vertical"
-                app:layoutManager="com.simplemobiletools.commons.views.MyLinearLayoutManager" />
+                app:layoutManager="com.simplemobiletools.commons.views.MyLinearLayoutManager"
+                />
 
         </RelativeLayout>
     </RelativeLayout>
 
-    <com.simplemobiletools.commons.views.MyFloatingActionButton
-        android:id="@+id/conversations_fab"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="@dimen/activity_margin"
-        android:src="@drawable/ic_plus_vector" />
+        android:layout_marginBottom="12dp"
+        android:orientation="vertical"
+        >
+
+        <com.simplemobiletools.commons.views.MyFloatingActionButton
+            android:id="@+id/go_organize_fab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_margin="@dimen/activity_margin"
+            android:src="@drawable/rolling_bomb_svgrepo_com"
+            />
+
+        <com.simplemobiletools.commons.views.MyFloatingActionButton
+            android:id="@+id/conversations_fab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/activity_margin"
+            android:src="@drawable/ic_plus_vector"
+            />
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

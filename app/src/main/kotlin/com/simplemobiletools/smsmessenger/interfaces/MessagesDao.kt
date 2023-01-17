@@ -1,10 +1,12 @@
 package com.simplemobiletools.smsmessenger.interfaces
 
+import android.provider.Telephony.TextBasedSmsColumns.STATUS_PENDING
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.simplemobiletools.smsmessenger.models.Message
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MessagesDao {
@@ -52,4 +54,7 @@ interface MessagesDao {
 
     @Query("DELETE FROM messages")
     fun deleteAll()
+
+    @Query("SELECT * FROM messages where status = $STATUS_PENDING")
+    fun getPendingMessagesFlow(): Flow<List<Message>>
 }

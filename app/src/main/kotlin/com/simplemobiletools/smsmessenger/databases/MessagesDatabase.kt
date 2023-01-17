@@ -9,15 +9,20 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.simplemobiletools.smsmessenger.helpers.Converters
 import com.simplemobiletools.smsmessenger.interfaces.AttachmentsDao
+import com.simplemobiletools.smsmessenger.interfaces.BoomOrganizedDao
 import com.simplemobiletools.smsmessenger.interfaces.ConversationsDao
 import com.simplemobiletools.smsmessenger.interfaces.MessageAttachmentsDao
 import com.simplemobiletools.smsmessenger.interfaces.MessagesDao
+import com.simplemobiletools.smsmessenger.interfaces.OrganizedContact
 import com.simplemobiletools.smsmessenger.models.Attachment
 import com.simplemobiletools.smsmessenger.models.Conversation
 import com.simplemobiletools.smsmessenger.models.Message
 import com.simplemobiletools.smsmessenger.models.MessageAttachment
 
-@Database(entities = [Conversation::class, Attachment::class, MessageAttachment::class, Message::class], version = 6)
+@Database(
+    entities = [Conversation::class, Attachment::class, MessageAttachment::class, Message::class, OrganizedContact::class],
+    version = 8
+)
 @TypeConverters(Converters::class)
 abstract class MessagesDatabase : RoomDatabase() {
 
@@ -28,6 +33,8 @@ abstract class MessagesDatabase : RoomDatabase() {
     abstract fun MessageAttachmentsDao(): MessageAttachmentsDao
 
     abstract fun MessagesDao(): MessagesDao
+
+    abstract fun BoomOrganizedDao() : BoomOrganizedDao
 
     companion object {
         private var db: MessagesDatabase? = null

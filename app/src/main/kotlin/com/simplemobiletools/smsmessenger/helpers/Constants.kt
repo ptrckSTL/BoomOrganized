@@ -16,6 +16,7 @@ const val THREAD_ATTACHMENT_URIS = "thread_attachment_uris"
 const val SEARCHED_MESSAGE_ID = "searched_message_id"
 const val USE_SIM_ID_PREFIX = "use_sim_id_"
 const val NOTIFICATION_CHANNEL = "simple_sms_messenger"
+const val BOOM_ORGANIZED_NOTIFICATION_CHANNEL = "boom_organized_notification_channel"
 const val SHOW_CHARACTER_COUNTER = "show_character_counter"
 const val USE_SIMPLE_CHARACTERS = "use_simple_characters"
 const val SEND_ON_ENTER = "send_on_enter"
@@ -81,6 +82,7 @@ const val CAPTURE_VIDEO_INTENT = 45
 const val CAPTURE_AUDIO_INTENT = 46
 const val PICK_DOCUMENT_INTENT = 47
 const val PICK_CONTACT_INTENT = 48
+const val PICK_CSV_INTENT = 49
 
 fun refreshMessages() {
     EventBus.getDefault().post(Events.RefreshMessages())

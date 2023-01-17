@@ -28,6 +28,7 @@ import com.simplemobiletools.smsmessenger.databases.MessagesDatabase
 import com.simplemobiletools.smsmessenger.helpers.*
 import com.simplemobiletools.smsmessenger.helpers.AttachmentUtils.parseAttachmentNames
 import com.simplemobiletools.smsmessenger.interfaces.AttachmentsDao
+import com.simplemobiletools.smsmessenger.interfaces.BoomOrganizedDao
 import com.simplemobiletools.smsmessenger.interfaces.ConversationsDao
 import com.simplemobiletools.smsmessenger.interfaces.MessageAttachmentsDao
 import com.simplemobiletools.smsmessenger.interfaces.MessagesDao
@@ -50,6 +51,8 @@ val Context.messageAttachmentsDB: MessageAttachmentsDao get() = getMessagesDB().
 
 val Context.messagesDB: MessagesDao get() = getMessagesDB().MessagesDao()
 
+val Context.boomOrganizedDB: BoomOrganizedDao get() = getMessagesDB().BoomOrganizedDao()
+
 val Context.notificationHelper get() = NotificationHelper(this)
 
 val Context.messagingUtils get() = MessagingUtils(this)
@@ -61,7 +64,7 @@ fun Context.getMessages(
     getImageResolutions: Boolean,
     dateFrom: Int = -1,
     includeScheduledMessages: Boolean = true,
-    limit: Int = MESSAGES_LIMIT
+    limit: Int = MESSAGES_LIMIT,
 ): ArrayList<Message> {
     val uri = Sms.CONTENT_URI
     val projection = arrayOf(

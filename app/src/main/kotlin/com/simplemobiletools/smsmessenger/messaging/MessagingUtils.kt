@@ -13,6 +13,7 @@ import android.widget.Toast
 import com.klinker.android.send_message.Message
 import com.klinker.android.send_message.Settings
 import com.klinker.android.send_message.Transaction
+import com.simplemobiletools.boomorganized.BoomOrganizerWorker.Companion.BOOM_ORGANIZED_ENTRY
 import com.simplemobiletools.commons.extensions.showErrorToast
 import com.simplemobiletools.commons.extensions.toast
 import com.simplemobiletools.smsmessenger.R
@@ -31,7 +32,7 @@ class MessagingUtils(val context: Context) {
      */
     private fun insertSmsMessage(
         subId: Int, dest: String, text: String, timestamp: Long, threadId: Long,
-        status: Int = Sms.STATUS_NONE, type: Int = Sms.MESSAGE_TYPE_OUTBOX
+        status: Int = Sms.STATUS_NONE, type: Int = Sms.MESSAGE_TYPE_OUTBOX,
     ): Uri {
         val response: Uri?
         val values = ContentValues().apply {
@@ -67,7 +68,7 @@ class MessagingUtils(val context: Context) {
 
     /** Send an SMS message given [text] and [addresses]. A [SmsException] is thrown in case any errors occur. */
     fun sendSmsMessage(
-        text: String, addresses: Set<String>, subId: Int, requireDeliveryReport: Boolean
+        text: String, addresses: Set<String>, subId: Int, requireDeliveryReport: Boolean, boomEntry: String?,
     ) {
         if (addresses.size > 1) {
             // insert a dummy message for this thread if it is a group message
@@ -89,7 +90,7 @@ class MessagingUtils(val context: Context) {
             try {
                 context.smsSender.sendMessage(
                     subId = subId, destination = address, body = text, serviceCenter = null,
-                    requireDeliveryReport = requireDeliveryReport, messageUri = messageUri
+                    requireDeliveryReport = requireDeliveryReport, messageUri = messageUri, boomEntry
                 )
             } catch (e: Exception) {
                 updateSmsMessageSendingStatus(messageUri, Sms.Outbox.MESSAGE_TYPE_FAILED)
@@ -133,10 +134,9 @@ class MessagingUtils(val context: Context) {
     }
 
     @Deprecated("TODO: Move/rewrite MMS code into the app.")
-    fun sendMmsMessage(text: String, addresses: List<String>, attachment: Attachment?, settings: Settings) {
+    fun sendMmsMessage(text: String, addresses: List<String>, attachment: Attachment?, settings: Settings, boomEntry: String? = null) {
         val transaction = Transaction(context, settings)
         val message = Message(text, addresses.toTypedArray())
-
         if (attachment != null) {
             try {
                 val uri = attachment.getUri()
@@ -157,7 +157,9 @@ class MessagingUtils(val context: Context) {
             }
         }
 
-        val mmsSentIntent = Intent(context, MmsSentReceiver::class.java)
+        val mmsSentIntent = Intent(context, MmsSentReceiver::class.java).apply {
+            putExtra(BOOM_ORGANIZED_ENTRY, boomEntry)
+        }
         transaction.setExplicitBroadcastForSentMms(mmsSentIntent)
 
         try {

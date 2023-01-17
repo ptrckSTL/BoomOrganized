@@ -9,10 +9,20 @@ import android.os.Looper
 import android.provider.Telephony.Sms
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.simplemobiletools.boomorganized.BoomOrganizerWorker
 import com.simplemobiletools.commons.extensions.getMyContactsCursor
 import com.simplemobiletools.commons.helpers.ensureBackgroundThread
-import com.simplemobiletools.smsmessenger.extensions.*
+import com.simplemobiletools.smsmessenger.extensions.boomOrganizedDB
+import com.simplemobiletools.smsmessenger.extensions.getMessageRecipientAddress
+import com.simplemobiletools.smsmessenger.extensions.getNameFromAddress
+import com.simplemobiletools.smsmessenger.extensions.getThreadId
+import com.simplemobiletools.smsmessenger.extensions.messagesDB
+import com.simplemobiletools.smsmessenger.extensions.messagingUtils
+import com.simplemobiletools.smsmessenger.extensions.notificationHelper
 import com.simplemobiletools.smsmessenger.helpers.refreshMessages
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 /** Handles updating databases and states when a SMS message is sent. */
 class SmsStatusSentReceiver : SendStatusReceiver() {
@@ -34,6 +44,7 @@ class SmsStatusSentReceiver : SendStatusReceiver() {
         )
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     override fun updateAppDatabase(context: Context, intent: Intent, receiverResultCode: Int) {
         val messageUri = intent.data
         if (messageUri != null) {
@@ -45,7 +56,11 @@ class SmsStatusSentReceiver : SendStatusReceiver() {
                     showSendingFailedNotification(context, messageId)
                     Sms.MESSAGE_TYPE_FAILED
                 }
-
+                intent.extras?.getString(BoomOrganizerWorker.BOOM_ORGANIZED_ENTRY)?.let {
+                    GlobalScope.launch {
+                        context.boomOrganizedDB.updateMessageStatusToSent(it)
+                    }
+                }
                 context.messagesDB.updateType(messageId, type)
                 refreshMessages()
             }

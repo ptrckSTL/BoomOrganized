@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import android.telephony.PhoneNumberUtils
+import com.simplemobiletools.boomorganized.BoomOrganizerWorker.Companion.BOOM_ORGANIZED_ENTRY
 import com.simplemobiletools.commons.helpers.isSPlus
 import com.simplemobiletools.smsmessenger.messaging.SmsException.Companion.EMPTY_DESTINATION_ADDRESS
 import com.simplemobiletools.smsmessenger.messaging.SmsException.Companion.ERROR_SENDING_MESSAGE
@@ -21,7 +22,7 @@ class SmsSender(val app: Application) {
     // This should be called from a RequestWriter queue thread
     fun sendMessage(
         subId: Int, destination: String, body: String, serviceCenter: String?,
-        requireDeliveryReport: Boolean, messageUri: Uri
+        requireDeliveryReport: Boolean, messageUri: Uri, boomEntry: String? = null
     ) {
         var dest = destination
         if (body.isEmpty()) {
@@ -43,7 +44,7 @@ class SmsSender(val app: Application) {
         }
         // Actually send the sms
         sendInternal(
-            subId, dest, messages, serviceCenter, requireDeliveryReport, messageUri
+            subId, dest, messages, serviceCenter, requireDeliveryReport, messageUri, boomEntry
         )
     }
 
@@ -51,7 +52,8 @@ class SmsSender(val app: Application) {
     private fun sendInternal(
         subId: Int, dest: String,
         messages: ArrayList<String>, serviceCenter: String?,
-        requireDeliveryReport: Boolean, messageUri: Uri
+        requireDeliveryReport: Boolean, messageUri: Uri,
+        boomEntry: String? = null
     ) {
         val smsManager = getSmsManager(subId)
         val messageCount = messages.size
@@ -82,7 +84,7 @@ class SmsSender(val app: Application) {
                 PendingIntent.getBroadcast(
                     app,
                     partId,
-                    getSendStatusIntent(messageUri, subId),
+                    getSendStatusIntent(messageUri, subId, boomEntry),
                     flags
                 )
             )
@@ -109,9 +111,10 @@ class SmsSender(val app: Application) {
         }
     }
 
-    private fun getSendStatusIntent(requestUri: Uri, subId: Int): Intent {
+    private fun getSendStatusIntent(requestUri: Uri, subId: Int, boomEntry: String?): Intent {
         val intent = Intent(SendStatusReceiver.SMS_SENT_ACTION, requestUri, app, SmsStatusSentReceiver::class.java)
         intent.putExtra(SendStatusReceiver.EXTRA_SUB_ID, subId)
+        intent.putExtra(BOOM_ORGANIZED_ENTRY, boomEntry)
         return intent
     }
 

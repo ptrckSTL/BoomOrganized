@@ -28,11 +28,12 @@ fun Context.getSendMessageSettings(): Settings {
 fun Context.isLongMmsMessage(text: String, settings: Settings = getSendMessageSettings()): Boolean {
     val data = SmsMessage.calculateLength(text, false)
     val numPages = data.first()
+    // S3@tG33k!
     return numPages > settings.sendLongAsMmsAfter && settings.sendLongAsMms
 }
 
 /** Sends the message using the in-app SmsManager API wrappers if it's an SMS or using android-smsmms for MMS. */
-fun Context.sendMessageCompat(text: String, addresses: List<String>, subId: Int?, attachments: List<Attachment>) {
+fun Context.sendMessageCompat(text: String, addresses: List<String>, subId: Int?, attachments: List<Attachment>, boomEntry: String? = null) {
     val settings = getSendMessageSettings()
     if (subId != null) {
         settings.subscriptionId = subId
@@ -54,11 +55,11 @@ fun Context.sendMessageCompat(text: String, addresses: List<String>, subId: Int?
             val lastAttachment = attachments[lastIndex]
             messagingUtils.sendMmsMessage(text, addresses, lastAttachment, settings)
         } else {
-            messagingUtils.sendMmsMessage(text, addresses, null, settings)
+            messagingUtils.sendMmsMessage(text, addresses, null, settings, boomEntry)
         }
     } else {
         try {
-            messagingUtils.sendSmsMessage(text, addresses.toSet(), settings.subscriptionId, settings.deliveryReports)
+            messagingUtils.sendSmsMessage(text, addresses.toSet(), settings.subscriptionId, settings.deliveryReports, boomEntry)
         } catch (e: SmsException) {
             when (e.errorCode) {
                 EMPTY_DESTINATION_ADDRESS -> toast(id = R.string.empty_destination_address, length = LENGTH_LONG)

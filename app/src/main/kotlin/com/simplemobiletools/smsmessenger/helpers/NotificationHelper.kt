@@ -3,6 +3,7 @@ package com.simplemobiletools.smsmessenger.helpers
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.NotificationManager.IMPORTANCE_HIGH
 import android.app.PendingIntent
 import android.content.Context
@@ -11,6 +12,7 @@ import android.graphics.Bitmap
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.RingtoneManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
@@ -195,5 +197,30 @@ class NotificationHelper(private val context: Context) {
         } else {
             emptyList()
         }
+    }
+
+    fun updateNotificationChannel(name: String, channelId: String, current: Int, total: Int) {
+        // Create notification channel
+        val channel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel(
+                channelId,
+                "Task Channel",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+        } else {
+            return
+        }
+
+        // Set progress for notification
+        NotificationCompat.Builder(context, channelId)
+            .setContentTitle("Organizing in progress")
+            .setContentText("Now organizing $name")
+            .setProgress(total, current, false)
+            .addAction(0, "Stop", null)
+            .addAction(0, "Resume", null)
+            .build()
+
+        // Update notification channel
+        notificationManager.createNotificationChannel(channel)
     }
 }

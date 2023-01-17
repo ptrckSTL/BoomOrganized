@@ -15,6 +15,7 @@ import android.provider.Telephony
 import android.text.TextUtils
 import android.widget.Toast
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import com.simplemobiletools.boomorganized.BoomOrganizedActivity
 import com.simplemobiletools.commons.dialogs.FilePickerDialog
 import com.simplemobiletools.commons.extensions.*
 import com.simplemobiletools.commons.helpers.*
@@ -241,6 +242,10 @@ class MainActivity : SimpleActivity() {
 
         no_conversations_placeholder_2.setOnClickListener {
             launchNewConversation()
+        }
+
+        go_organize_fab.setOnClickListener {
+            startActivity(Intent(this, BoomOrganizedActivity::class.java))
         }
 
         conversations_fab.setOnClickListener {
@@ -635,6 +640,7 @@ class MainActivity : SimpleActivity() {
                     showErrorToast(e)
                 }
             }
+
             else -> toast(R.string.invalid_file_format)
         }
     }
