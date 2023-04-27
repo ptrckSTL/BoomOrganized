@@ -8,15 +8,10 @@ import android.database.sqlite.SQLiteException
 import android.net.Uri
 import android.provider.Telephony
 import android.widget.Toast
-import com.simplemobiletools.boomorganized.BoomOrganizerWorker.Companion.BOOM_ORGANIZED_ENTRY
 import com.simplemobiletools.commons.extensions.showErrorToast
 import com.simplemobiletools.commons.extensions.toast
 import com.simplemobiletools.smsmessenger.R
-import com.simplemobiletools.smsmessenger.extensions.boomOrganizedDB
 import com.simplemobiletools.smsmessenger.helpers.refreshMessages
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import java.io.File
 
 /** Handles updating databases and states when a MMS message is sent. */
@@ -48,17 +43,8 @@ class MmsSentReceiver : SendStatusReceiver() {
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     override fun updateAppDatabase(context: Context, intent: Intent, receiverResultCode: Int) {
         refreshMessages()
-        if (resultCode == Activity.RESULT_OK) {
-            refreshMessages()
-            intent.extras?.getString(BOOM_ORGANIZED_ENTRY)?.let {
-                GlobalScope.launch {
-                    context.boomOrganizedDB.updateMessageStatusToSent(it)
-                }
-            }
-        }
     }
 
     companion object {

@@ -191,7 +191,7 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
                     resumeSession()
                 }
 
-                is BoomOrganizedViewState.OrganizationComplete -> _state.value = BoomOrganizedViewState.RapAndImage(script, imageUri)
+                is BoomOrganizedViewState.OrganizationComplete -> generateInitialState()
 
                 is BoomOrganizedViewState.OfferToResume -> {
                     resumeSession()
@@ -215,6 +215,7 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
             is CsvState.None -> Unit
             is CsvState.Found -> {
                 with(state) {
+                    clearDB()
                     for (index in (1..csv.lastIndex)) { // skip head
                         val cell = csv[index][cellCol]
                         // TODO check for empty names

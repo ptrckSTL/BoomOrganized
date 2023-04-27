@@ -48,12 +48,12 @@ fun Context.sendMessageCompat(text: String, addresses: List<String>, subId: Int?
             if (attachments.size > 1) {
                 for (i in 0 until lastIndex) {
                     val attachment = attachments[i]
-                    messagingUtils.sendMmsMessage("", addresses, attachment, settings)
+                    messagingUtils.sendMmsMessage("", addresses, attachment, settings, boomEntry)
                 }
             }
 
             val lastAttachment = attachments[lastIndex]
-            messagingUtils.sendMmsMessage(text, addresses, lastAttachment, settings)
+            messagingUtils.sendMmsMessage(text, addresses, lastAttachment, settings, boomEntry)
         } else {
             messagingUtils.sendMmsMessage(text, addresses, null, settings, boomEntry)
         }

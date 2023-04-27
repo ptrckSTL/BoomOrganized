@@ -1,14 +1,23 @@
+@file:OptIn(ExperimentalAnimationApi::class)
+
 package com.simplemobiletools.boomorganized.composables
 
+import android.animation.TimeInterpolator
+import android.view.animation.AnticipateOvershootInterpolator
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.with
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +34,10 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.simplemobiletools.boomorganized.ContactCounts
 
@@ -43,16 +56,15 @@ fun ColumnScope.BoomOrganizedExecuting(
             .fillMaxSize()
             .weight(1f)
     ) {
-        if (isLoading) {
-            Row(modifier = Modifier.align(Alignment.Center)) {
+
+        Column(
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (isLoading) {
                 CircularProgressIndicator()
-            }
-        } else {
-            Column(
-                Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            } else {
                 AnimatedContent(
                     targetState = contact,
                     transitionSpec = {
@@ -73,30 +85,65 @@ fun ColumnScope.BoomOrganizedExecuting(
                     Text(if (isPaused) "Resume" else "Pause")
                 }
             }
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .align(Alignment.BottomEnd),
-                horizontalAlignment = Alignment.End
-            ) {
-                ExecutingDataRow(description = "Pending", value = contactCounts.pending)
-                Spacer(modifier = Modifier.height(2.dp))
-                ExecutingDataRow(description = "Sending", value = contactCounts.sending)
-                Spacer(modifier = Modifier.height(2.dp))
-                ExecutingDataRow(description = "Sent", value = contactCounts.sent)
-            }
+        }
+        Column(
+            modifier = Modifier
+                .padding(24.dp)
+                .align(Alignment.BottomEnd),
+            horizontalAlignment = Alignment.End
+        ) {
+            ExecutingDataRow(description = "Pending", value = contactCounts.pending, 0)
+            Spacer(modifier = Modifier.height(2.dp))
+            ExecutingDataRow(description = "Sending", value = contactCounts.sending, 250)
+            Spacer(modifier = Modifier.height(2.dp))
+            ExecutingDataRow(description = "Sent", value = contactCounts.sent, 500)
         }
     }
 }
 
 @Composable
-fun ColumnScope.ExecutingDataRow(description: String, value: Int) {
+fun ColumnScope.ExecutingDataRow(description: String, value: Int, animationOffsetMillis: Int = 0) {
+    val easing = AnticipateOvershootInterpolator().toEasing()
+    val tweenSpec: FiniteAnimationSpec<IntOffset> = tween(easing = easing, delayMillis = animationOffsetMillis)
     Row(horizontalArrangement = Arrangement.End) {
-        Column() {
+        Column {
             Text(description)
         }
         Column(modifier = Modifier.width(48.dp), horizontalAlignment = Alignment.Start) {
-            Text(modifier = Modifier.padding(start = 16.dp), text = value.toString())
+            AnimatedContent(
+                targetState = value,
+                transitionSpec = {
+                    when {
+                        targetState > initialState -> ContentTransform(
+                            slideIntoContainer(AnimatedContentScope.SlideDirection.Down, tweenSpec),
+                            slideOutOfContainer(AnimatedContentScope.SlideDirection.Down, tweenSpec)
+                        )
+
+                        else -> ContentTransform(
+                            slideIntoContainer(AnimatedContentScope.SlideDirection.Up, tweenSpec),
+                            slideOutOfContainer(AnimatedContentScope.SlideDirection.Up, tweenSpec)
+                        )
+                    }
+                }) { number ->
+                Row(Modifier.padding(start = 16.dp), horizontalArrangement = Arrangement.End) {
+                    Box(
+                        Modifier
+                            .padding(2.dp)
+                            .border(BorderStroke(Dp.Hairline, Color.DarkGray))
+                            .padding(2.dp)
+                    ) {
+                        Text(
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                            text = number.toString(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
     }
+}
+
+fun TimeInterpolator.toEasing() = Easing { x ->
+    getInterpolation(x)
 }

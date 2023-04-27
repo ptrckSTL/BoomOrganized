@@ -11,12 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -50,8 +48,7 @@ fun Attachment(modifier: Modifier = Modifier, uri: Uri?, onAddAttachment: () -> 
             Box {
                 AsyncImage(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
+                        .fillMaxWidth(),
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(uri)
                         .build(),
@@ -89,9 +86,8 @@ fun Attachment(modifier: Modifier = Modifier, uri: Uri?, onAddAttachment: () -> 
             )
             Row(
                 Modifier
-                    .padding(12.dp)
+                    .height(200.dp)
                     .fillMaxWidth()
-                    .weight(1f)
                     .clickable { onAddAttachment() }
                     .drawBehind {
                         drawRoundRect(color = Color.White, style = stroke)

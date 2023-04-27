@@ -182,20 +182,20 @@ fun BoomOrganizedScreen(
                 )
 
                 is BoomOrganizedViewState.OfferToResume -> BoomOrganizedResumePending(
-                    onResume = resumePending,
-                    onDecline = freshStart,
+                    counts = currentState.contactCounts,
                     preview = currentState.preview,
+                    imageUri = currentState.photoUri,
                     onReattach = onAddPhoto,
                     onRemovePhoto = onRemovePhoto,
-                    imageUri = currentState.photoUri,
-                    onScriptEdit = onScriptEdit,
-                    counts = currentState.contactCounts
+                    onScriptEdit = onScriptEdit
                 )
 
                 BoomOrganizedViewState.Uninitiated -> Unit
                 BoomOrganizedViewState.OrganizationComplete -> BoomOrganizingComplete()
             }
         }
+
+        // Button control flow logic
         Row(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
@@ -210,6 +210,20 @@ fun BoomOrganizedScreen(
 
                 is BoomOrganizedViewState.OrganizationComplete -> {
                     BOButton(text = "Reset", onClick = goNext)
+                }
+
+                is BoomOrganizedViewState.OfferToResume -> {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        BOButton(
+                            onClick = freshStart,
+                            text = "Start fresh"
+                        )
+
+                        BOButton(
+                            text = "Resume organizing",
+                            onClick = goNext
+                        )
+                    }
                 }
 
                 is BoomOrganizedViewState.BoomOrganizedExecute -> {

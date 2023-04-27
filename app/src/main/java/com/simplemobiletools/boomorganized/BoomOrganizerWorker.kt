@@ -49,7 +49,10 @@ class BoomOrganizerWorker(private val appContext: Context, parameters: WorkerPar
     private val notificationManager = appContext.notificationManager
 
     override suspend fun doWork(): Result {
-        val contacts = appContext.boomOrganizedDB.getPendingContacts()
+        val contacts = appContext
+            .boomOrganizedDB
+            .getPendingContacts()
+            .filter { it.status == BoomStatus.PENDING }
         val attachmentUri = inputData.getString(ATTACHMENT)
         val attachment = if (attachmentUri.isNullOrEmpty()) emptyList()
         else {
@@ -70,9 +73,7 @@ class BoomOrganizerWorker(private val appContext: Context, parameters: WorkerPar
                         // Update work repo and progress notification bar
                         val contactName = "${it.value.firstName ?: ""} ${it.value.lastName ?: ""}"
                         setStatusToSending(it.value)
-                        BoomOrganizedWorkRepo.apply {
-                            organizeContact(contactName)
-                        }
+                        BoomOrganizedWorkRepo.setExecuting(contactName)
 
                         setForeground(ForegroundInfo(123, updateNotification(contacts.size, it.index + 1, contactName)))
 
@@ -175,7 +176,7 @@ object BoomOrganizedWorkRepo : OrganizedContactsRepo {
         _workState.value = BoomOrganizedWorkState.Complete
     }
 
-    fun organizeContact(currentContact: String) {
+    fun setExecuting(currentContact: String) {
         _workState.value = BoomOrganizedWorkState.Executing(currentContact)
     }
 
