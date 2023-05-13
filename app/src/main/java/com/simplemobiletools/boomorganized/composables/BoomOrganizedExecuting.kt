@@ -45,7 +45,6 @@ import com.simplemobiletools.boomorganized.ContactCounts
 @Composable
 fun ColumnScope.BoomOrganizedExecuting(
     contact: String,
-    contactCounts: ContactCounts,
     isLoading: Boolean,
     isPaused: Boolean,
     onResumeOrganizing: () -> Unit,
@@ -56,7 +55,6 @@ fun ColumnScope.BoomOrganizedExecuting(
             .fillMaxSize()
             .weight(1f)
     ) {
-
         Column(
             Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center,
@@ -86,23 +84,25 @@ fun ColumnScope.BoomOrganizedExecuting(
                 }
             }
         }
-        Column(
-            modifier = Modifier
-                .padding(24.dp)
-                .align(Alignment.BottomEnd),
-            horizontalAlignment = Alignment.End
-        ) {
-            ExecutingDataRow(description = "Pending", value = contactCounts.pending, 0)
-            Spacer(modifier = Modifier.height(2.dp))
-            ExecutingDataRow(description = "Sending", value = contactCounts.sending, 250)
-            Spacer(modifier = Modifier.height(2.dp))
-            ExecutingDataRow(description = "Sent", value = contactCounts.sent, 500)
-        }
     }
 }
 
 @Composable
-fun ColumnScope.ExecutingDataRow(description: String, value: Int, animationOffsetMillis: Int = 0) {
+fun ProgressRows(modifier: Modifier = Modifier, contactCounts: ContactCounts) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        horizontalAlignment = Alignment.End
+    ) {
+        ExecutingDataRow(description = "Pending", value = contactCounts.pending, 0)
+        Spacer(modifier = Modifier.height(2.dp))
+        ExecutingDataRow(description = "Sending", value = contactCounts.sending, 250)
+        Spacer(modifier = Modifier.height(2.dp))
+        ExecutingDataRow(description = "Sent", value = contactCounts.sent, 500)
+    }
+}
+
+@Composable
+fun ExecutingDataRow(description: String, value: Int, animationOffsetMillis: Int = 0) {
     val easing = AnticipateOvershootInterpolator().toEasing()
     val tweenSpec: FiniteAnimationSpec<IntOffset> = tween(easing = easing, delayMillis = animationOffsetMillis)
     Row(horizontalArrangement = Arrangement.End) {

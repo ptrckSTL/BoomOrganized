@@ -112,7 +112,7 @@ class BoomOrganizerWorker(private val appContext: Context, parameters: WorkerPar
             NotificationChannel(
                 BOOM_ORGANIZED_NOTIFICATION_CHANNEL,
                 "boom organized progress",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_LOW
             )
         )
 
@@ -124,6 +124,7 @@ class BoomOrganizerWorker(private val appContext: Context, parameters: WorkerPar
             .setSmallIcon(R.drawable.rolling_bomb_svgrepo_com)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setProgress(total, current, false)
+            .setSilent(true)
             .addAction(android.R.drawable.ic_delete, "Cancel", WorkManager.getInstance(appContext).createCancelPendingIntent(id))
             .build()
     }
@@ -173,7 +174,7 @@ object BoomOrganizedWorkRepo : OrganizedContactsRepo {
     }
 
     fun setComplete() {
-        _workState.value = BoomOrganizedWorkState.Complete
+        _workState.value = BoomOrganizedWorkState.Complete(contactCounts.value)
     }
 
     fun setExecuting(currentContact: String) {
@@ -207,12 +208,15 @@ sealed class BoomOrganizedWorkState {
     }
 
     object Loading : BoomOrganizedWorkState()
-    object Complete : BoomOrganizedWorkState()
+    class Complete(val counts: ContactCounts) : BoomOrganizedWorkState() {
+        override fun equals(other: Any?) = other is Complete && counts == other.counts
+        override fun hashCode() = counts.hashCode()
+    }
 }
 
 data class ContactCounts(val currentContact: String = "", val pending: Int = 0, val sending: Int = 0, val sent: Int = 0) {
     override fun equals(other: Any?) =
-        other is ContactCounts && pending == other.pending && sending == other.sending && sent == other.sent
+        other is ContactCounts && pending == other.pending && sending == other.sending && sent == other.sent && currentContact == other.currentContact
 
     override fun hashCode(): Int {
         var result = currentContact.hashCode()
@@ -222,6 +226,8 @@ data class ContactCounts(val currentContact: String = "", val pending: Int = 0, 
         return result
     }
 }
+
+fun ContactCounts.isEmpty() = pending == 0 && sending == 0 && sent == 0
 
 fun List<OrganizedContact>.toContactCount() =
     groupingBy { it.status }

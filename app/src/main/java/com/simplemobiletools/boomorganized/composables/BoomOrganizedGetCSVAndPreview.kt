@@ -19,7 +19,7 @@ fun BoomOrganizedGetCSVAndPreview(
     state: BoomOrganizedViewState.CsvAndPreview,
     onAddCsv: () -> Unit,
 ) {
-    Column(modifier = modifier) {
+    Column(modifier = modifier.padding(horizontal = 12.dp)) {
         BOButton(
             modifier = Modifier
                 .fillMaxWidth()

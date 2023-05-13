@@ -36,7 +36,7 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
     val state = combineStates(_state, workState) { viewState, combinedWorkState ->
         val (workState, counts) = combinedWorkState
         if (workState is BoomOrganizedWorkState.Complete) {
-            BoomOrganizedViewState.OrganizationComplete
+            BoomOrganizedViewState.OrganizationComplete(workState.counts)
         } else {
             (viewState as? BoomOrganizedViewState.BoomOrganizedExecute)?.let {
                 when (workState) {
@@ -47,7 +47,11 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
                         isLoading = false
                     )
 
-                    is BoomOrganizedWorkState.Loading -> it.copy(isLoading = true, isPaused = false)
+                    is BoomOrganizedWorkState.Loading -> it.copy(
+                        isLoading = true,
+                        isPaused = false
+                    )
+
                     is BoomOrganizedWorkState.Paused -> it.copy(
                         counts = counts,
                         isPaused = true,
@@ -192,11 +196,7 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
                 }
 
                 is BoomOrganizedViewState.OrganizationComplete -> generateInitialState()
-
-                is BoomOrganizedViewState.OfferToResume -> {
-                    resumeSession()
-                }
-
+                is BoomOrganizedViewState.OfferToResume -> resumeSession()
                 else -> {}
             }
         }
@@ -365,7 +365,10 @@ sealed class BoomOrganizedViewState {
 
     object Uninitiated : BoomOrganizedViewState()
 
-    object OrganizationComplete : BoomOrganizedViewState()
+    class OrganizationComplete(val counts: ContactCounts) : BoomOrganizedViewState() {
+        override fun equals(other: Any?) = other is OrganizationComplete && counts == other.counts
+        override fun hashCode() = counts.hashCode()
+    }
 }
 
 typealias Csv = List<List<String>>
