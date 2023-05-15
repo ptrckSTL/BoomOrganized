@@ -1,18 +1,23 @@
 package com.simplemobiletools.boomorganized.oauth
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.simplemobiletools.boomorganized.getResultFromActivity
 import com.simplemobiletools.boomorganized.onComplete
-import com.simplemobiletools.smsmessenger.BuildConfig
+import com.simplemobiletools.boomorganized.ui.theme.BoomOrganizedTheme
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -36,22 +41,19 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
     private val signInCallback: ActivityResultLauncher<Intent> = getResultFromActivity { intent ->
         resultCode.onComplete(
             onFailure = {
-                println("PATRICK - failure")
-                println("PATRICK - ${BuildConfig.APPLICATION_ID}")
-                println("PATRICK - ${BuildConfig.BUILD_TYPE}")
+                setResult(GOOGLE_SIGN_IN_FAILURE)
+                finish()
             },
             onSuccess = {
                 lifecycleScope.launch {
                     withContext(coroutineContext + exceptionHandler) { GoogleSignIn.getSignedInAccountFromIntent(intent) }
                         .addOnSuccessListener(this@GoogleSheetSelectionActivity) { account ->
-                            lifecycleScope.launch {
+                            lifecycleScope.launch(Dispatchers.IO) {
                                 viewModel.getRecentSheets(exceptionHandler)
                             }
                             DriveRepo.selectedAccount = account.account
                         }
-                        .addOnFailureListener(this@GoogleSheetSelectionActivity) { _ ->
-                            println("PATRICK - failed after success")
-                        }
+
                 }
                 GoogleSignIn.getSignedInAccountFromIntent(data)
             }
@@ -63,12 +65,12 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.Main + exceptionHandler) {
             val signIn = cachedSignIn.await()
             if (signIn == null || signIn.isExpired) {
-                println("PATRICK - requesting sign in...")
                 requestSignIn()
             } else {
-                println("PATRICK - getRecentSheets fired")
-                viewModel.getRecentSheets(exceptionHandler)
-                DriveRepo.selectedAccount = signIn.account
+                launch(Dispatchers.IO) {
+                    viewModel.getRecentSheets(exceptionHandler)
+                    DriveRepo.selectedAccount = signIn.account
+                }
             }
 
         }
@@ -82,11 +84,38 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         initiateGoogleSignIn()
         setContent {
-            SheetSelectionScreen(
-                viewState = viewModel.viewState.collectAsState().value,
-                onSheetSelected = viewModel::onSheetSelected,
-                onSubSheetSelected = viewModel::onSubSheetSelected
-            )
+            BoomOrganizedTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colors.background
+                ) {
+                    val viewState = viewModel.viewState.collectAsState()
+                    val state = viewState.value
+                    if (state is SheetSelectViewState.Complete) {
+                        setResult(RESULT_OK, Intent().apply {
+                            putExtra(GOOGLE_SHEET_RESULT, state.driveSheet)
+                        })
+                        finish()
+                    }
+                    SheetSelectionScreen(
+                        viewState = state,
+                        onSheetSelected = viewModel::onSheetSelected,
+                        onSubSheetSelected = viewModel::onSubSheetSelected,
+                        onLabelSelected = viewModel::onUpdateColumnLabel,
+                        onPrevious = viewModel::onNavigationBack,
+                        onNext = viewModel::onNavigateNext
+                    )
+                }
+            }
+        }
+    }
+
+    companion object {
+        const val GOOGLE_SHEET_RESULT = "google_sheet_result"
+        const val GOOGLE_SIGN_IN_FAILURE = 500
+
+        fun createIntent(context: Context): Intent {
+            return Intent(context, GoogleSheetSelectionActivity::class.java)
         }
     }
 }

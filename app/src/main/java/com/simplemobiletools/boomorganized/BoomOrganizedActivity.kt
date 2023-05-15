@@ -1,7 +1,6 @@
 package com.simplemobiletools.boomorganized
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.telephony.SmsManager
@@ -15,8 +14,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.MaterialTheme
@@ -40,9 +41,8 @@ import com.simplemobiletools.boomorganized.composables.BoomOrganizedRapAndPhoto
 import com.simplemobiletools.boomorganized.composables.BoomOrganizedResumePending
 import com.simplemobiletools.boomorganized.composables.BoomOrganizingComplete
 import com.simplemobiletools.boomorganized.composables.ProgressRows
-import com.simplemobiletools.boomorganized.oauth.GoogleSheetSelectionActivity
+import com.simplemobiletools.boomorganized.oauth.DriveSheet
 import com.simplemobiletools.boomorganized.ui.theme.BoomOrganizedTheme
-import com.simplemobiletools.commons.extensions.toast
 import com.simplemobiletools.smsmessenger.extensions.subscriptionManagerCompat
 import com.simplemobiletools.smsmessenger.helpers.PICK_CSV_INTENT
 import com.simplemobiletools.smsmessenger.helpers.PICK_PHOTO_INTENT
@@ -66,7 +66,6 @@ class BoomOrganizedActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        startActivity(Intent(this, GoogleSheetSelectionActivity::class.java))
         setContent {
             BoomOrganizedTheme {
                 // A surface container using the 'background' color from the theme
@@ -80,7 +79,8 @@ class BoomOrganizedActivity : ComponentActivity() {
                         onAddCsv = ::addCSV,
                         resumePending = viewModel::resumeSession,
                         freshStart = viewModel::freshStart,
-                        onPauseOrganizing = viewModel::pauseOrganizing
+                        onPauseOrganizing = viewModel::pauseOrganizing,
+                        handleGoogleSheetResult = viewModel::handleGoogleSheetResult
                     )
                 }
             }
@@ -108,17 +108,17 @@ class BoomOrganizedActivity : ComponentActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         val uri = data?.data
         when {
-            uri == null || resultCode != Activity.RESULT_OK -> {
-                toast("Something went wrong")
-            }
-
             requestCode == PICK_PHOTO_INTENT -> {
-                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                viewModel.updateAttachmentState(uri)
+                if (uri != null) {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    viewModel.updateAttachmentState(uri)
+                }
             }
 
             requestCode == PICK_CSV_INTENT -> {
-                viewModel.takeCsv(uri, contentResolver)
+                uri?.let {
+                    viewModel.takeCsv(it, contentResolver)
+                }
             }
         }
     }
@@ -157,6 +157,7 @@ fun BoomOrganizedScreen(
     freshStart: () -> Unit,
     onScriptEdit: (String) -> Unit,
     onPauseOrganizing: () -> Unit,
+    handleGoogleSheetResult: (DriveSheet?) -> Unit,
 ) {
     val state by viewState.collectAsState()
     var counts by remember { mutableStateOf(ContactCounts()) }
@@ -176,7 +177,7 @@ fun BoomOrganizedScreen(
 
         else -> /* no-op */ {}
     }
-    BoomScaffold {
+    BoomScaffold(content = {
         Column(modifier = Modifier.weight(1f)) {
             when (val currentState = state) {
                 is BoomOrganizedViewState.RapAndImage -> BoomOrganizedRapAndPhoto(
@@ -191,6 +192,7 @@ fun BoomOrganizedScreen(
                 is BoomOrganizedViewState.CsvAndPreview -> BoomOrganizedGetCSVAndPreview(
                     state = currentState,
                     onAddCsv = onAddCsv,
+                    onGoogleSheetSelected = handleGoogleSheetResult
                 )
 
                 is BoomOrganizedViewState.BoomOrganizedExecute -> BoomOrganizedExecuting(
@@ -213,76 +215,81 @@ fun BoomOrganizedScreen(
                 BoomOrganizedViewState.Uninitiated -> Unit
                 is BoomOrganizedViewState.OrganizationComplete -> BoomOrganizingComplete()
             }
+        }
+    }, navigation = {
+        // Button control flow logic
+        Row(
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+        ) {
+            when (val vState = state) {
+                is BoomOrganizedViewState.RapAndImage -> {
+                    BOButton(
+                        modifier = Modifier.width(120.dp),
+                        text = "Next",
+                        onClick = goNext
+                    )
+                }
 
-            // Button control flow logic
-            Row(
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp)
-            ) {
-                when (val vState = state) {
-                    is BoomOrganizedViewState.RapAndImage -> {
+                is BoomOrganizedViewState.OfferToResume -> {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         BOButton(
-                            modifier = Modifier.width(120.dp),
-                            text = "Next",
+                            onClick = freshStart,
+                            text = "Start fresh"
+                        )
+
+                        BOButton(
+                            text = "Resume organizing",
                             onClick = goNext
                         )
                     }
-
-                    is BoomOrganizedViewState.OfferToResume -> {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            BOButton(
-                                onClick = freshStart,
-                                text = "Start fresh"
-                            )
-
-                            BOButton(
-                                text = "Resume organizing",
-                                onClick = goNext
-                            )
-                        }
-                    }
-
-                    is BoomOrganizedViewState.CsvAndPreview -> {
-                        if (vState.csvState is CsvState.Found) {
-                            BOButton(text = "Commence to Organizing", onClick = goNext)
-                        }
-                    }
-
-                    is BoomOrganizedViewState.BoomOrganizedExecute -> {
-                        Box {
-                            ProgressRows(
-                                modifier = Modifier.align(Alignment.BottomEnd),
-                                contactCounts = counts
-                            )
-                        }
-                    }
-
-                    is BoomOrganizedViewState.OrganizationComplete -> {
-                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-                            ProgressRows(contactCounts = counts)
-                            BOButton(text = "Reset", onClick = goNext)
-                        }
-                    }
-
-                    is BoomOrganizedViewState.Uninitiated -> Unit
                 }
+
+                is BoomOrganizedViewState.CsvAndPreview -> {
+                    if (vState.csvState is CsvState.Found) {
+                        BOButton(text = "Commence to Organizing", onClick = goNext)
+                    }
+                }
+
+                is BoomOrganizedViewState.BoomOrganizedExecute -> {
+                    Box {
+                        ProgressRows(
+                            modifier = Modifier.align(Alignment.BottomEnd),
+                            contactCounts = counts
+                        )
+                    }
+                }
+
+                is BoomOrganizedViewState.OrganizationComplete -> {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+                        ProgressRows(contactCounts = counts)
+                        BOButton(text = "Reset", onClick = goNext)
+                    }
+                }
+
+                is BoomOrganizedViewState.Uninitiated -> Unit
             }
         }
-    }
+    })
 }
 
 @Composable
-fun BoomScaffold(content: @Composable ColumnScope.() -> Unit) {
+fun BoomScaffold(content: @Composable ColumnScope.() -> Unit, navigation: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 8.dp)
     ) {
-        AppLogo()
-        content()
+        Column(modifier = Modifier.weight(1f)) {
+            AppLogo()
+            content()
+        }
+        Spacer(Modifier.height(12.dp))
+        navigation()
+        Spacer(Modifier.height(12.dp))
     }
 }
 
@@ -317,6 +324,7 @@ fun CsvPreview() {
                 preview = "okay and then i wrote another preview for a stupid composable"
             ),
             modifier = Modifier,
+            onGoogleSheetSelected = {},
             onAddCsv = {},
         )
     }

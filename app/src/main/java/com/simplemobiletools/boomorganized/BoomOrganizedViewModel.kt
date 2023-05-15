@@ -18,6 +18,7 @@ import androidx.work.workDataOf
 import com.github.doyaaaaaken.kotlincsv.client.CsvReader
 import com.simplemobiletools.boomorganized.BoomOrganizedWorkRepo.workState
 import com.simplemobiletools.boomorganized.BoomOrganizerWorker.Companion.WORK_TAG
+import com.simplemobiletools.boomorganized.oauth.DriveSheet
 import com.simplemobiletools.smsmessenger.App
 import com.simplemobiletools.smsmessenger.interfaces.BoomStatus
 import com.simplemobiletools.smsmessenger.interfaces.OrganizedContact
@@ -83,6 +84,19 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
         }
     }
 
+    fun handleGoogleSheetResult(sheet: DriveSheet?) {
+        sheet?.let {
+            setCsvState(
+                CsvState.Found(
+                    sheet.rows,
+                    sheet.firstNameIndex,
+                    sheet.lastNameIndex,
+                    sheet.cellIndex
+                )
+            )
+        }
+    }
+
     fun onClearAttachment() {
         imageUri = null
         _state.update {
@@ -105,7 +119,7 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
     }
 
     private fun generateInitialState() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             // Are we in the "That's Organizing, Baby" state? Then reset the WorkRepo
             if (state.value is BoomOrganizedViewState.OrganizationComplete &&
                 WorkManager.getInstance(boomContext)
@@ -156,26 +170,31 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
                     }
                 }
             }
-            latestCsvState = userCsv
-            _state.value = when (userCsv) {
-                is CsvState.Found -> BoomOrganizedViewState.CsvAndPreview(
-                    csvState = userCsv,
-                    preview = replaceTemplates(script, userCsv.firstName(1), userCsv.lastName(1)),
-                    photoUri = imageUri
-                )
 
-                is CsvState.Error -> BoomOrganizedViewState.CsvAndPreview(
-                    csvState = userCsv,
-                    preview = userCsv.msg,
-                    imageUri
-                )
+            setCsvState(userCsv)
+        }
+    }
 
-                CsvState.None -> BoomOrganizedViewState.CsvAndPreview(
-                    csvState = userCsv,
-                    preview = "Somehow no state",
-                    photoUri = imageUri
-                )
-            }
+    fun setCsvState(userCsv: CsvState) {
+        latestCsvState = userCsv
+        _state.value = when (userCsv) {
+            is CsvState.Found -> BoomOrganizedViewState.CsvAndPreview(
+                csvState = userCsv,
+                preview = replaceTemplates(script, userCsv.firstName(1), userCsv.lastName(1)),
+                photoUri = imageUri
+            )
+
+            is CsvState.Error -> BoomOrganizedViewState.CsvAndPreview(
+                csvState = userCsv,
+                preview = userCsv.msg,
+                imageUri
+            )
+
+            CsvState.None -> BoomOrganizedViewState.CsvAndPreview(
+                csvState = userCsv,
+                preview = "Somehow no state",
+                photoUri = imageUri
+            )
         }
     }
 
@@ -187,7 +206,7 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
     }
 
     fun loadNextViewState() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             when (state.value) {
                 is BoomOrganizedViewState.RapAndImage -> _state.value = BoomOrganizedViewState.CsvAndPreview(latestCsvState, script, imageUri)
                 is BoomOrganizedViewState.CsvAndPreview -> {

@@ -27,13 +27,14 @@ fun BoomOrganizedRapAndPhoto(
     onScriptEdit: (String) -> Unit,
 ) {
     val phrase = remember(Unit) {
-        listOf(
-            "if you ain't cheating you ain't tryin",
-            "everything is an organizing conversation",
-            "what's your rap?",
-            "everything is a structure test",
-            "always be organizing"
-        ).random()
+        if ((1..50).random() == 1) "a square is just a circle" else
+            listOf(
+                "if you ain't cheating you ain't tryin",
+                "everything is an organizing conversation",
+                "what's your rap?",
+                "everything is a structure test",
+                "always be organizing",
+            ).random()
     }
     Column(
         modifier = modifier.padding(start = 8.dp, end = 8.dp),

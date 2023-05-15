@@ -13,6 +13,11 @@ data class SheetListItem(
 ) {
     companion object {
         fun fromDriveFile(file: DriveFile) =
-            SheetListItem(title = file.name, description = file.description, id = file.id, date = file.modifiedTime)
+            SheetListItem(
+                title = file.name,
+                description = file.description,
+                id = file.id,
+                date = file.modifiedTime
+            )
     }
 }

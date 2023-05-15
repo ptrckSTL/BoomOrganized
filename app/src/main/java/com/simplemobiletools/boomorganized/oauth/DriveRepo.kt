@@ -1,6 +1,8 @@
 package com.simplemobiletools.boomorganized.oauth
 
 import android.accounts.Account
+import android.os.Parcel
+import android.os.Parcelable
 import com.google.android.gms.common.Scopes
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -49,47 +51,148 @@ object DriveRepo {
         }
     }
 
-    fun getSpreadsheetValues(ssID: String): SheetState {
+    suspend fun getSpreadsheetValues(ssID: String): SheetState {
         val subSheets = sheets.spreadsheets().get(ssID).apply { includeGridData = true }.execute().sheets
         return if (subSheets.size == 1) {
-            println("PATRICK - title = ${subSheets.first().properties.title}")
-            val rows = fetchSheetValues(sheets, ssID, subSheets.first().properties.title)
-            SheetState.SelectedSheet(DriveSheet.generate(rows))
+            try {
+                val rows = fetchSheetValues(sheets, ssID, subSheets.first().properties.title)
+                if (rows.isEmpty()) throw IllegalStateException()
+                val sheet = rows.toDriveSheet()
+                SheetState.SelectedSheet(sheet)
+            } catch (e: IllegalStateException) {
+                SheetState.InvalidSheet
+            }
         } else {
             SheetState.MultipleSheets(ssID, subSheets.map { it.properties.title })
         }
     }
 
-    fun getSpreadsheetValuesFromSubSheet(ssID: String, name: String): SheetState.SelectedSheet {
-        println("PATRICK - fetching values by from range: $name")
+    suspend fun getSpreadsheetValuesFromSubSheet(ssID: String, name: String): SheetState {
         val rows = fetchSheetValues(sheets, ssID, name)
-        return SheetState.SelectedSheet(DriveSheet.generate(rows))
+        return try {
+            SheetState.SelectedSheet(rows.toDriveSheet())
+        } catch (e: Exception) {
+            SheetState.InvalidSheet
+        }
     }
 
-    private fun fetchSheetValues(
+    private suspend fun fetchSheetValues(
         sheets: Sheets,
         ssID: String,
         name: String,
-    ) = sheets.spreadsheets().values().get(ssID, name).execute()
-        .getValues() as List<List<String>>
+    ) = withContext(Dispatchers.IO) {
+        sheets.spreadsheets().values().get(ssID, name).execute()
+            .getValues() as List<List<String>>
+    }
 }
 
 sealed class SheetState {
     class MultipleSheets(val ssID: String, val sheetNames: List<String>) : SheetState()
     class SelectedSheet(val sheet: DriveSheet) : SheetState()
+
+    object InvalidSheet : SheetState()
 }
 
 data class DriveSheet(
     val headers: List<String>,
-    val flatRows: List<String>,
-) {
-    companion object {
-        fun generate(values: List<List<String>>): DriveSheet {
-            println("PATRICK - headers: ${values.first().size}")
-            val flatRows = values.subList(1, values.size).flatten()
-            println("PATRICK - rows: ${flatRows}")
-            return DriveSheet(values.first(), flatRows)
+    val rows: List<List<String>>,
+    val firstNameIndex: Int = -1,
+    val lastNameIndex: Int = -1,
+    val cellIndex: Int = -1,
+) : Parcelable {
+    constructor(parcel: Parcel) : this(
+        parcel.createStringArrayList() ?: emptyList(),
+        parcel.createStringArrayList()?.map { it.split(",") } ?: emptyList(),
+        parcel.readInt(),
+        parcel.readInt(),
+        parcel.readInt()
+    )
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeStringList(headers)
+        parcel.writeStringList(rows.map { it.joinToString(",") })
+        parcel.writeInt(firstNameIndex)
+        parcel.writeInt(lastNameIndex)
+        parcel.writeInt(cellIndex)
+    }
+
+    override fun describeContents(): Int {
+        return 0
+    }
+
+    companion object CREATOR : Parcelable.Creator<DriveSheet> {
+        override fun createFromParcel(parcel: Parcel): DriveSheet {
+            return DriveSheet(parcel)
+        }
+
+        override fun newArray(size: Int): Array<DriveSheet?> {
+            return arrayOfNulls(size)
         }
     }
 }
 
+fun List<List<String>>.toDriveSheet() = try {
+    val header = first()
+    var defaultCellIndex = -1
+    var defaultFirstNameIndex = -1
+    var defaultLastNameIndex = -1
+    header.forEachIndexed { index, s ->
+        when {
+            Regex("(?i)first( name)?|firstName").matches(s) -> defaultFirstNameIndex = index
+            Regex("(?i)last( name)?|lastName").matches(s) -> defaultLastNameIndex = index
+            Regex("(?i)cell(ular)?|phone(1|\\s)?|mobile").matches(s) -> defaultCellIndex = index
+        }
+    }
+    DriveSheet(
+        firstNameIndex = defaultFirstNameIndex,
+        lastNameIndex = defaultLastNameIndex,
+        cellIndex = defaultCellIndex,
+        headers = first(),
+        rows = subList(1, size)
+    )
+} catch (e: Exception) {
+    throw IllegalStateException()
+}
+
+fun DriveSheet.update(label: ColumnLabel?, index: Int) = when (label) {
+    ColumnLabel.FirstName -> {
+        val updateLastName = if (lastNameIndex == index) -1 else this.lastNameIndex
+        val updateCellIndex = if (cellIndex == index) -1 else this.cellIndex
+        copy(
+            lastNameIndex = updateLastName,
+            cellIndex = updateCellIndex,
+            firstNameIndex = index
+        )
+    }
+
+    ColumnLabel.LastName -> {
+        val updateFirstName = if (firstNameIndex == index) -1 else this.firstNameIndex
+        val updateCellIndex = if (cellIndex == index) -1 else this.cellIndex
+        copy(
+            firstNameIndex = updateFirstName,
+            cellIndex = updateCellIndex,
+            lastNameIndex = index
+        )
+    }
+
+    ColumnLabel.CellPhone -> {
+        val updateLastName = if (lastNameIndex == index) -1 else this.lastNameIndex
+        val updateFirstName = if (firstNameIndex == index) -1 else this.firstNameIndex
+        copy(
+            lastNameIndex = updateLastName,
+            firstNameIndex = updateFirstName,
+            cellIndex = index
+        )
+    }
+
+    null -> {
+        val updateFirstName = if (firstNameIndex == index) -1 else this.firstNameIndex
+        val updateCellIndex = if (cellIndex == index) -1 else this.cellIndex
+        val updateLastName = if (lastNameIndex == index) -1 else this.lastNameIndex
+        copy(
+            firstNameIndex = updateFirstName,
+            cellIndex = updateCellIndex,
+            lastNameIndex = updateLastName
+        )
+    }
+}
