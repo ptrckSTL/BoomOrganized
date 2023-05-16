@@ -29,16 +29,18 @@ class SheetSelectViewModel : ViewModel() {
 
     suspend fun getRecentSheets(exceptionHandler: CoroutineExceptionHandler) {
         viewModelScope.launch(exceptionHandler) {
-            _viewState.emit(SheetSelectViewState.SheetsFound(emptyList(), true))
-            stackCurrentEmitNew(try {
+            try {
                 // TODO this should be tunable by the user
-                DriveRepo.getListOfFiles(Date(System.currentTimeMillis() - Duration.ofDays(7L).toMillis()))?.files?.map { SheetListItem.fromDriveFile(it) }
-                    ?.let {
-                        SheetSelectViewState.SheetsFound(it, false)
-                    } ?: throw IllegalStateException("Failed to collect sheets")
+                val successState =
+                    DriveRepo.getListOfFiles(Date(System.currentTimeMillis() - Duration.ofDays(7L).toMillis()))?.files?.map { SheetListItem.fromDriveFile(it) }
+                        ?.let {
+                            SheetSelectViewState.SheetsFound(it, false)
+                        }
+
+                successState?.let { stackCurrentEmitNew(it) }
             } catch (e: Exception) {
-                SheetSelectViewState.Error(e.message)
-            })
+                exceptionHandler.handleException(coroutineContext, e)
+            }
         }
     }
 
@@ -63,7 +65,7 @@ class SheetSelectViewModel : ViewModel() {
             emitLoadingState()
             stackCurrentEmitNew(
                 when (val state = DriveRepo.getSpreadsheetValuesFromSubSheet(ssID, subSheet)) {
-                    is SheetState.SelectedSheet -> SheetSelectViewState.SheetSelected(state.sheet)
+                    is SheetState.SelectedSheet -> SheetSelectViewState.SheetSelected(state.sheet, emptyList())
                     else -> SheetSelectViewState.Error("Something was wrong about that sheet.")
                 }
             )
@@ -78,11 +80,11 @@ class SheetSelectViewModel : ViewModel() {
     fun onUpdateColumnLabel(index: Int, newLabel: ColumnLabel?) {
         when (val state = _viewState.value) {
             is SheetSelectViewState.SheetSelected -> {
-                _viewState.update {
+                _viewState.value =
                     SheetSelectViewState.SheetSelected(
-                        sheet = state.sheet.update(newLabel, index)
+                        sheet = state.sheet.update(newLabel, index),
+                        userFilter = state.userFilter
                     )
-                }
             }
 
             else -> {
@@ -102,8 +104,10 @@ class SheetSelectViewModel : ViewModel() {
     }
 
     fun onNavigationBack() {
-        if (navigationStack.isNotEmpty()) {
-            _viewState.value = navigationStack.removeLast()
+        _viewState.value = if (navigationStack.isNotEmpty()) {
+            navigationStack.removeLast()
+        } else {
+            SheetSelectViewState.ForceClose
         }
     }
 
@@ -123,8 +127,8 @@ class SheetSelectViewModel : ViewModel() {
                     sh.lastNameIndex == -1 -> _viewState.value = select.copy(error = SheetError.NoLastName)
                     sh.cellIndex == -1 -> _viewState.value = select.copy(error = SheetError.NoCellSelected)
                     else -> {
-                        val missingNumbers = sh.rows.count {
-                            val cell = it.getOrNull(sh.cellIndex)
+                        val missingNumbers = sh.rows.count { row ->
+                            val cell = row.getOrNull(sh.cellIndex)
                             cell.isNullOrBlank() || !Patterns.PHONE.matcher(cell).matches()
                         }
                         if (missingNumbers > 0) {
@@ -161,7 +165,7 @@ class SheetSelectViewModel : ViewModel() {
                                 }
 
                                 else -> {
-                                    SheetSelectViewState.SheetSelected(sheetState.sheet)
+                                    SheetSelectViewState.SheetSelected(sheetState.sheet, emptyList())
                                 }
                             }
                         }
@@ -192,11 +196,25 @@ sealed class SheetSelectViewState {
         }
     }
 
+    object ForceClose : SheetSelectViewState()
     object Uninitiated : SheetSelectViewState()
     class Error(val msg: String?) : SheetSelectViewState()
-    data class SheetsFound(val sheets: List<SheetListItem>, override val isLoading: Boolean = false) : SheetSelectViewState(), Loadable
-    data class SubSheetsFound(val ssID: String, val sheets: List<String>, override val isLoading: Boolean = false) : SheetSelectViewState(), Loadable
-    data class SheetSelected(val sheet: DriveSheet, val error: SheetError = SheetError.None) : SheetSelectViewState() {
+    data class SheetsFound(
+        val sheets: List<SheetListItem>,
+        override val isLoading: Boolean = false,
+    ) : SheetSelectViewState(), Loadable
+
+    data class SubSheetsFound(
+        val ssID: String,
+        val sheets: List<String>,
+        override val isLoading: Boolean = false,
+    ) : SheetSelectViewState(), Loadable
+
+    data class SheetSelected(
+        val sheet: DriveSheet,
+        val userFilter: List<UserFilter>,
+        val error: SheetError = SheetError.None,
+    ) : SheetSelectViewState() {
         override fun equals(other: Any?) = other is SheetSelected && other.sheet == sheet && other.error == error
         override fun hashCode() = javaClass.hashCode()
     }
@@ -208,6 +226,11 @@ sealed class SheetError {
     object NoFirstName : SheetError()
     object NoLastName : SheetError()
     class SomeCellEntriesMissing(val count: Int) : SheetError()
+}
+
+sealed class UserFilter {
+    class Show(val value: String) : UserFilter()
+    class Exclude(val value: String) : UserFilter()
 }
 
 enum class ColumnLabel {

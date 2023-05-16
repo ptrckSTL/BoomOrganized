@@ -1,5 +1,6 @@
 package com.simplemobiletools.boomorganized.oauth
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -20,7 +21,6 @@ import com.simplemobiletools.boomorganized.onComplete
 import com.simplemobiletools.boomorganized.ui.theme.BoomOrganizedTheme
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -45,34 +45,29 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
                 finish()
             },
             onSuccess = {
+                println("patrick - callback success called")
                 lifecycleScope.launch {
-                    withContext(coroutineContext + exceptionHandler) { GoogleSignIn.getSignedInAccountFromIntent(intent) }
-                        .addOnSuccessListener(this@GoogleSheetSelectionActivity) { account ->
+                 val account = GoogleSignIn.getLastSignedInAccount(this@GoogleSheetSelectionActivity)
+
+                            DriveRepo.selectedAccount = account!!.account
                             lifecycleScope.launch(Dispatchers.IO) {
                                 viewModel.getRecentSheets(exceptionHandler)
                             }
-                            DriveRepo.selectedAccount = account.account
                         }
 
-                }
-                GoogleSignIn.getSignedInAccountFromIntent(data)
-            }
-        )
+                })
     }
 
     private fun initiateGoogleSignIn() {
-        val cachedSignIn = lifecycleScope.async { GoogleSignIn.getLastSignedInAccount(this@GoogleSheetSelectionActivity) }
         lifecycleScope.launch(Dispatchers.Main + exceptionHandler) {
-            val signIn = cachedSignIn.await()
-            if (signIn == null || signIn.isExpired) {
+            val cachedSignIn = withContext(Dispatchers.IO) { GoogleSignIn.getLastSignedInAccount(this@GoogleSheetSelectionActivity) }
+            if (cachedSignIn?.account == null || cachedSignIn.isExpired) {
+                println("PATRICK - requesting sign in...")
                 requestSignIn()
             } else {
-                launch(Dispatchers.IO) {
-                    viewModel.getRecentSheets(exceptionHandler)
-                    DriveRepo.selectedAccount = signIn.account
-                }
+                DriveRepo.selectedAccount = cachedSignIn.account
+                viewModel.getRecentSheets(exceptionHandler)
             }
-
         }
     }
 
@@ -103,7 +98,11 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
                         onSubSheetSelected = viewModel::onSubSheetSelected,
                         onLabelSelected = viewModel::onUpdateColumnLabel,
                         onPrevious = viewModel::onNavigationBack,
-                        onNext = viewModel::onNavigateNext
+                        onNext = viewModel::onNavigateNext,
+                        onForceClose = {
+                            setResult(Activity.RESULT_CANCELED)
+                            finish()
+                        }
                     )
                 }
             }

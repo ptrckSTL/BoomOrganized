@@ -55,11 +55,16 @@ fun SheetSelectionScreen(
     onLabelSelected: (Int, ColumnLabel?) -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onForceClose: () -> Unit,
 ) {
     BoomScaffold(
         content = {
             Spacer(Modifier.height(32.dp))
             when (viewState) {
+                is SheetSelectViewState.ForceClose -> {
+                    onForceClose()
+                }
+
                 is SheetSelectViewState.Error -> {
                     Box(
                         modifier = Modifier
@@ -90,7 +95,11 @@ fun SheetSelectionScreen(
                     onSubSheetSelected = onSubSheetSelected
                 )
 
-                SheetSelectViewState.Uninitiated, is SheetSelectViewState.Complete -> {}
+                SheetSelectViewState.Uninitiated -> {
+                    Box(Modifier.fillMaxSize()) { ConditionalLoading(true) }
+                }
+
+                is SheetSelectViewState.Complete -> {}
             }
         },
         navigation = {
@@ -428,5 +437,5 @@ val SheetError.text: String?
         SheetError.NoFirstName -> "You didn't select a first name. If that's okay hit next again."
         SheetError.NoLastName -> "You didn't select a last name. If that's okay hit next again."
         SheetError.None -> null
-        is SheetError.SomeCellEntriesMissing -> "${this.count} rows have a missing or malformed cell phone number. These will be purged from the rolls. If that's okay hit next again."
+        is SheetError.SomeCellEntriesMissing -> "$this rows have a missing or malformed cell phone number. These will be purged from the rolls. If that's okay hit next again."
     }

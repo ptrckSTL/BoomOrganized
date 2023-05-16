@@ -3,12 +3,12 @@ package com.simplemobiletools.boomorganized.oauth
 import android.accounts.Account
 import android.os.Parcel
 import android.os.Parcelable
-import com.google.android.gms.common.Scopes
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.DateTime
 import com.google.api.services.drive.Drive
+import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.FileList
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.SheetsScopes
@@ -26,7 +26,7 @@ object DriveRepo {
     var selectedAccount: Account? = null
 
     private fun credential(): GoogleAccountCredential? {
-        val scopes = listOf(SheetsScopes.SPREADSHEETS, Scopes.DRIVE_FULL, Scopes.DRIVE_FILE)
+        val scopes = listOf(SheetsScopes.SPREADSHEETS_READONLY, DriveScopes.DRIVE_READONLY)
         val credential = GoogleAccountCredential.usingOAuth2(App.instance, scopes)
         credential.selectedAccount = selectedAccount
         return credential
@@ -56,6 +56,9 @@ object DriveRepo {
         return if (subSheets.size == 1) {
             try {
                 val rows = fetchSheetValues(sheets, ssID, subSheets.first().properties.title)
+                rows.forEach {
+                    println("PROW - $it")
+                }
                 if (rows.isEmpty()) throw IllegalStateException()
                 val sheet = rows.toDriveSheet()
                 SheetState.SelectedSheet(sheet)
@@ -69,6 +72,9 @@ object DriveRepo {
 
     suspend fun getSpreadsheetValuesFromSubSheet(ssID: String, name: String): SheetState {
         val rows = fetchSheetValues(sheets, ssID, name)
+        rows.forEach {
+            println("PROW - $it")
+        }
         return try {
             SheetState.SelectedSheet(rows.toDriveSheet())
         } catch (e: Exception) {
@@ -89,7 +95,6 @@ object DriveRepo {
 sealed class SheetState {
     class MultipleSheets(val ssID: String, val sheetNames: List<String>) : SheetState()
     class SelectedSheet(val sheet: DriveSheet) : SheetState()
-
     object InvalidSheet : SheetState()
 }
 
@@ -151,8 +156,10 @@ fun List<List<String>>.toDriveSheet() = try {
         rows = subList(1, size)
     )
 } catch (e: Exception) {
-    throw IllegalStateException()
+    throw SpreadsheetParsingException
 }
+
+object SpreadsheetParsingException : Exception()
 
 fun DriveSheet.update(label: ColumnLabel?, index: Int) = when (label) {
     ColumnLabel.FirstName -> {
