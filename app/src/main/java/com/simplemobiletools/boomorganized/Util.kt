@@ -21,16 +21,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
-
-fun Long.asHumanReadableTime(): String {
-    val seconds = this / 1000
-    val hours = seconds / 3600
-    val minutes = (seconds - (hours * 3600)) / 60
-    val secs = seconds % 60
-    return "$hours:$minutes:$secs"
-}
-
-
  fun replaceTemplates(rapWithTemplates: String, firstName: String?, lastName: String?): String {
     var result = rapWithTemplates
     if (firstName != null) {
@@ -51,6 +41,8 @@ private fun replaceTemplate(templates: Array<String>, rap: String, replacement: 
     }
     return rap
 }
+
+
 
 /**
  * Does not produce the same value in a raw, so respect "distinct until changed emissions"

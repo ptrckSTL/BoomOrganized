@@ -6,19 +6,15 @@ import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
-import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkManager
-import androidx.work.await
-import androidx.work.workDataOf
+import androidx.work.*
 import com.github.doyaaaaaken.kotlincsv.client.CsvReader
 import com.simplemobiletools.boomorganized.BoomOrganizedWorkRepo.workState
 import com.simplemobiletools.boomorganized.BoomOrganizerWorker.Companion.WORK_TAG
-import com.simplemobiletools.boomorganized.oauth.DriveSheet
+import com.simplemobiletools.boomorganized.sheets.ColumnLabel
+import com.simplemobiletools.boomorganized.sheets.SheetError
+import com.simplemobiletools.boomorganized.sheets.UserSheet
 import com.simplemobiletools.smsmessenger.App
 import com.simplemobiletools.smsmessenger.interfaces.BoomStatus
 import com.simplemobiletools.smsmessenger.interfaces.OrganizedContact
@@ -27,7 +23,6 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @SuppressLint("StaticFieldLeak", "MissingPermission")
 class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContactsRepo {
@@ -65,7 +60,7 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
         }
     }
 
-    private var latestCsvState: CsvState = CsvState.None
+    private var latestUserSheetState: UserSheetState = UserSheetState.None
 
     init {
         generateInitialState()
@@ -84,24 +79,29 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
         }
     }
 
-    fun handleGoogleSheetResult(sheet: DriveSheet?) {
+    fun handleGoogleSheetResult(sheet: UserSheet?) {
         sheet?.let {
             setCsvState(
-                CsvState.Found(
-                    sheet.rows,
-                    sheet.firstNameIndex,
-                    sheet.lastNameIndex,
-                    sheet.cellIndex
+                UserSheetState.Found(
+                    it.toFilterableDriveSheet()
                 )
             )
         }
+    }
+
+    fun handleCsvUpload(sheet: List<List<String>>) {
+        _state.value = BoomOrganizedViewState.RequestLabels(
+            requiredLabels = listOf(),
+            sheet = FilterableUserSheet.fromRows(sheet),
+            error = SheetError.None
+        )
     }
 
     fun onClearAttachment() {
         imageUri = null
         _state.update {
             when (it) {
-                is BoomOrganizedViewState.CsvAndPreview -> {
+                is BoomOrganizedViewState.PreviewOutgoing -> {
                     it.copy(photoUri = null)
                 }
 
@@ -153,63 +153,51 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
     fun takeCsv(uri: Uri, contentResolver: ContentResolver) {
         val reader = CsvReader()
         viewModelScope.launch(Dispatchers.IO) {
-            val userCsv = withContext(coroutineContext) {
-                contentResolver.openInputStream(uri).use {
-                    if (it == null) return@withContext CsvState.Error("Couldn't open the input stream")
+
+            contentResolver.openInputStream(uri).use {
+                if (it == null) setCsvState(UserSheetState.Error("Couldn't open the input stream"))
+                else {
                     with(reader.readAll(it)) {
                         val headers = firstOrNull()
                         if (headers == null || this.size < 2) { // need to have at least one row of non-header content
-                            CsvState.Error("Malformed or empty CSV was found, please select a different file")
+                            UserSheetState.Error("Malformed or empty CSV was found, please select a different file")
                         } else {
-                            val firstNameCol = findStringValueColumnNumberOrNull(headers, *firstNameTemplates)
-                            val lastNameCol = findStringValueColumnNumberOrNull(headers, *lastNameTemplates)
-                            val cellCol = findStringValueColumnNumberOrNull(headers, *cellTemplates)
-                            if (cellCol == null) CsvState.Error("Need a cell phone column")
-                            else CsvState.Found(this, firstNameCol, lastNameCol, cellCol)
+                            handleGoogleSheetResult(UserSheet(this))
                         }
                     }
                 }
             }
-
-            setCsvState(userCsv)
         }
     }
 
-    fun setCsvState(userCsv: CsvState) {
-        latestCsvState = userCsv
+    fun setCsvState(userCsv: UserSheetState) {
+        latestUserSheetState = userCsv
         _state.value = when (userCsv) {
-            is CsvState.Found -> BoomOrganizedViewState.CsvAndPreview(
-                csvState = userCsv,
-                preview = replaceTemplates(script, userCsv.firstName(1), userCsv.lastName(1)),
+            is UserSheetState.Found -> BoomOrganizedViewState.PreviewOutgoing(
+                userSheetState = userCsv,
+                preview = "", // TODO
                 photoUri = imageUri
             )
 
-            is CsvState.Error -> BoomOrganizedViewState.CsvAndPreview(
-                csvState = userCsv,
+            is UserSheetState.Error -> BoomOrganizedViewState.PreviewOutgoing(
+                userSheetState = userCsv,
                 preview = userCsv.msg,
                 imageUri
             )
 
-            CsvState.None -> BoomOrganizedViewState.CsvAndPreview(
-                csvState = userCsv,
+            UserSheetState.None -> BoomOrganizedViewState.PreviewOutgoing(
+                userSheetState = userCsv,
                 preview = "Somehow no state",
                 photoUri = imageUri
             )
         }
     }
 
-    private fun findStringValueColumnNumberOrNull(list: List<String>, vararg values: String): Int? {
-        list.forEachIndexed { index, s ->
-            if (s in values) return index
-        }
-        return null
-    }
-
     fun loadNextViewState() {
         viewModelScope.launch(Dispatchers.IO) {
             when (state.value) {
-                is BoomOrganizedViewState.RapAndImage -> _state.value = BoomOrganizedViewState.CsvAndPreview(latestCsvState, script, imageUri)
-                is BoomOrganizedViewState.CsvAndPreview -> {
+                is BoomOrganizedViewState.RapAndImage -> _state.value = BoomOrganizedViewState.PreviewOutgoing(latestUserSheetState, script, imageUri)
+                is BoomOrganizedViewState.PreviewOutgoing -> {
                     populateDatabaseWithContacts()
                     resumeSession()
                 }
@@ -229,26 +217,21 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
     }
 
     private suspend fun populateDatabaseWithContacts() {
-        when (val state = latestCsvState) {
-            is CsvState.Error -> _state.update { BoomOrganizedViewState.CsvAndPreview(state, "CSV was malformed, use something else.", imageUri) }
-            is CsvState.None -> Unit
-            is CsvState.Found -> {
+        when (val state = latestUserSheetState) {
+            is UserSheetState.Error -> _state.update { BoomOrganizedViewState.PreviewOutgoing(state, "CSV was malformed, use something else.", imageUri) }
+            is UserSheetState.None -> Unit
+            is UserSheetState.Found -> {
                 with(state) {
                     clearDB()
-                    for (index in (1..csv.lastIndex)) { // skip head
-                        val cell = csv[index][cellCol]
-                        // TODO check for empty names
-                        val firstName = firstNameCol?.let { csv[index][it] }
-                        val lastName = lastNameCol?.let { csv[index][it] }
-                        if (Patterns.PHONE.matcher(cell).matches())
-                            upsertContact(
-                                OrganizedContact(
-                                    cell = csv[index][cellCol],
-                                    firstName = firstName,
-                                    lastName = lastName,
-                                    status = BoomStatus.PENDING
-                                )
+                    this.filterableUserSheet.rows.forEach { row ->
+                        upsertContact(
+                            OrganizedContact(
+                                cell = row[filterableUserSheet.cellIndex].value,
+                                firstName = row[filterableUserSheet.firstNameIndex].value,
+                                lastName = row[filterableUserSheet.lastNameIndex].value,
+                                status = BoomStatus.PENDING
                             )
+                        )
                     }
                 }
             }
@@ -296,7 +279,7 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
 
     fun onBackViewState(systemBackPress: () -> Unit) {
         when (state.value) {
-            is BoomOrganizedViewState.CsvAndPreview -> {
+            is BoomOrganizedViewState.PreviewOutgoing -> {
                 _state.value = BoomOrganizedViewState.RapAndImage(script, imageUri)
             }
 
@@ -314,30 +297,15 @@ class BoomOrganizedViewModel : ViewModel(), BoomOrganizedPrefs, OrganizedContact
     }
 }
 
-sealed class CsvState {
-    object None : CsvState()
-    class Error(val msg: String) : CsvState() {
+sealed class UserSheetState {
+    object None : UserSheetState()
+    class Error(val msg: String) : UserSheetState() {
         override fun equals(other: Any?) = other is Error && msg == other.msg
         override fun hashCode() = msg.hashCode()
     }
 
-    data class Found(val csv: Csv, val firstNameCol: Int?, val lastNameCol: Int?, val cellCol: Int) : CsvState() {
-        override fun equals(other: Any?) = other is Found && csv == other.csv && firstNameCol == other.firstNameCol && cellCol == other.cellCol
-        override fun hashCode(): Int {
-            var result = firstNameCol ?: 0
-            result = 31 * result + (lastNameCol ?: 0)
-            result = 31 * result + cellCol
-            return result
-        }
-    }
+    data class Found(val filterableUserSheet: FilterableUserSheet) : UserSheetState()
 }
-
-fun CsvState.Found.firstName(index: Int) = if (firstNameCol != null) csv[index][firstNameCol] else null
-fun CsvState.Found.lastName(index: Int) = if (lastNameCol != null) csv[index][lastNameCol] else null
-fun CsvState.Found.cell(index: Int) = csv[index][cellCol]
-
-val CsvState.rows: Int?
-    get() = (this as? CsvState.Found?)?.csv?.size?.minus(1) // don't count header
 
 sealed class BoomOrganizedViewState {
     data class RapAndImage(
@@ -352,14 +320,21 @@ sealed class BoomOrganizedViewState {
         }
     }
 
-    data class CsvAndPreview(
-        val csvState: CsvState,
+    object SelectSource : BoomOrganizedViewState()
+    data class RequestLabels(
+        val requiredLabels: List<ColumnLabel>,
+        val sheet: FilterableUserSheet,
+        val error: SheetError,
+    ) : BoomOrganizedViewState()
+
+    data class PreviewOutgoing(
+        val userSheetState: UserSheetState,
         val preview: String,
         val photoUri: Uri?,
     ) : BoomOrganizedViewState() {
-        override fun equals(other: Any?) = other is CsvAndPreview && csvState == other.csvState
+        override fun equals(other: Any?) = other is PreviewOutgoing && userSheetState == other.userSheetState
         override fun hashCode(): Int {
-            var result = csvState.hashCode()
+            var result = userSheetState.hashCode()
             result = 31 * result + preview.hashCode()
             return result
         }
@@ -390,8 +365,6 @@ sealed class BoomOrganizedViewState {
     }
 }
 
-typealias Csv = List<List<String>>
-
 val firstNameTemplates = arrayOf("firstName", "first_name", "first name", "first")
 val lastNameTemplates = arrayOf("lastName", "last_name", "last name", "last")
 val cellTemplates = arrayOf("cell", "phone", "cell_phone", "cellphone")
@@ -402,3 +375,4 @@ data class Contact(
     val firstName: String,
     val lastName: String,
 )
+

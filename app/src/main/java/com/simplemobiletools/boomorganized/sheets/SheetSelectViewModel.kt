@@ -1,8 +1,11 @@
-package com.simplemobiletools.boomorganized.oauth
+package com.simplemobiletools.boomorganized.sheets
 
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.simplemobiletools.boomorganized.FilterableUserSheet
+import com.simplemobiletools.boomorganized.toFilterableDriveSheet
+import com.simplemobiletools.boomorganized.update
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,12 +22,10 @@ class SheetSelectViewModel : ViewModel() {
 
     private val navigationStack = ArrayDeque<SheetSelectViewState>()
 
+    private var result: FilterableUserSheet? = null
     private fun stackCurrentEmitNew(state: SheetSelectViewState) {
         navigationStack.add(_viewState.value.asNotLoading())
         _viewState.value = state
-        navigationStack.forEachIndexed { index, sheetSelectViewState ->
-            println("PATRICK - nav stack: $index, ${sheetSelectViewState.javaClass.simpleName}")
-        }
     }
 
     suspend fun getRecentSheets(exceptionHandler: CoroutineExceptionHandler) {
@@ -65,7 +66,7 @@ class SheetSelectViewModel : ViewModel() {
             emitLoadingState()
             stackCurrentEmitNew(
                 when (val state = DriveRepo.getSpreadsheetValuesFromSubSheet(ssID, subSheet)) {
-                    is SheetState.SelectedSheet -> SheetSelectViewState.SheetSelected(state.sheet, emptyList())
+                    is SheetState.SelectedSheet -> SheetSelectViewState.SheetSelected(state.sheet.toFilterableDriveSheet())
                     else -> SheetSelectViewState.Error("Something was wrong about that sheet.")
                 }
             )
@@ -82,8 +83,7 @@ class SheetSelectViewModel : ViewModel() {
             is SheetSelectViewState.SheetSelected -> {
                 _viewState.value =
                     SheetSelectViewState.SheetSelected(
-                        sheet = state.sheet.update(newLabel, index),
-                        userFilter = state.userFilter
+                        sheet = state.sheet.update(newLabel, index)
                     )
             }
 
@@ -111,8 +111,35 @@ class SheetSelectViewModel : ViewModel() {
         }
     }
 
+    fun onCreateFilter(columnIndex: Int) {
+        (_viewState.value as? SheetSelectViewState.SheetSelected)?.let {
+            result = it.sheet
+            _viewState.value = SheetSelectViewState.FilterSetup(
+                it.sheet.headers[columnIndex],
+                it.sheet.rows[columnIndex]
+            )
+        }
+    }
+
+    fun addIncludeFilter(index: Int, value: String) {
+        (_viewState.value as? SheetSelectViewState.FilterSetup)?.let { state ->
+            _viewState.value = state.copy(
+                values = state.values.toMutableList().apply {
+                    this[index] = FilterableValue.Include(value)
+                })
+        }
+    }
+
+    fun addExcludeFilter(index: Int, value: String) {
+        (_viewState.value as? SheetSelectViewState.FilterSetup)?.let { state ->
+            _viewState.value = state.copy(
+                values = state.values.toMutableList().apply {
+                    this[index] = FilterableValue.Exclude(value)
+                })
+        }
+    }
+
     private fun generateNextNavState(select: SheetSelectViewState.SheetSelected) {
-        println("PATRICK - error = ${select.error.javaClass.simpleName}")
         when (select.error) {
             // These are warnings, we can move on
             SheetError.NoFirstName, SheetError.NoLastName, is SheetError.SomeCellEntriesMissing -> {
@@ -120,7 +147,6 @@ class SheetSelectViewModel : ViewModel() {
             }
 
             SheetError.None, SheetError.NoCellSelected -> {
-                println("PATRICK - ${select.sheet.cellIndex}")
                 val sh = select.sheet
                 when {
                     sh.firstNameIndex == -1 -> _viewState.value = select.copy(error = SheetError.NoFirstName)
@@ -128,7 +154,7 @@ class SheetSelectViewModel : ViewModel() {
                     sh.cellIndex == -1 -> _viewState.value = select.copy(error = SheetError.NoCellSelected)
                     else -> {
                         val missingNumbers = sh.rows.count { row ->
-                            val cell = row.getOrNull(sh.cellIndex)
+                            val cell = row.getOrNull(sh.cellIndex)?.value
                             cell.isNullOrBlank() || !Patterns.PHONE.matcher(cell).matches()
                         }
                         if (missingNumbers > 0) {
@@ -154,18 +180,12 @@ class SheetSelectViewModel : ViewModel() {
 
                         is SheetState.SelectedSheet -> {
                             when {
-                                sheetState.sheet.headers.isEmpty() -> {
+                                sheetState.sheet.rows.isEmpty() -> {
                                     SheetSelectViewState.Error("Tried to open a spreadsheet, but no headers were found.")
                                 }
 
-                                sheetState.sheet.rows.any { it.size != sheetState.sheet.headers.size } -> {
-                                    SheetSelectViewState.Error(
-                                        "Error occurred while parsing spreadsheet data.\n" + "Header row length did not divide evenly into the total number of cells that we found.\n" + "Please check that there isn't a header with an empty column or a column without a header.\n"
-                                    )
-                                }
-
                                 else -> {
-                                    SheetSelectViewState.SheetSelected(sheetState.sheet, emptyList())
+                                    SheetSelectViewState.SheetSelected(sheetState.sheet.toFilterableDriveSheet())
                                 }
                             }
                         }
@@ -182,14 +202,14 @@ class SheetSelectViewModel : ViewModel() {
 
 sealed class SheetSelectViewState {
 
-    class Complete private constructor(val driveSheet: DriveSheet) : SheetSelectViewState() {
+    class Complete private constructor(val userSheet: FilterableUserSheet) : SheetSelectViewState() {
         companion object {
-            fun sanitizeAndConstruct(driveSheet: DriveSheet) =
+            fun sanitizeAndConstruct(userSheet: FilterableUserSheet) =
                 Complete(
-                    driveSheet.copy(
-                        rows = driveSheet.rows.filter {
-                            val cell = it.getOrNull(driveSheet.cellIndex)
-                            !cell.isNullOrBlank() && Patterns.PHONE.matcher(cell!!).matches()
+                    userSheet.copy(
+                        rows = userSheet.rows.filter {
+                            val cell = it.getOrNull(userSheet.cellIndex)?.value
+                            !cell.isNullOrBlank() && Patterns.PHONE.matcher(cell).matches()
                         }
                     )
                 )
@@ -211,13 +231,17 @@ sealed class SheetSelectViewState {
     ) : SheetSelectViewState(), Loadable
 
     data class SheetSelected(
-        val sheet: DriveSheet,
-        val userFilter: List<UserFilter>,
+        val sheet: FilterableUserSheet,
         val error: SheetError = SheetError.None,
     ) : SheetSelectViewState() {
         override fun equals(other: Any?) = other is SheetSelected && other.sheet == sheet && other.error == error
         override fun hashCode() = javaClass.hashCode()
     }
+
+    data class FilterSetup(
+        val header: String,
+        val values: List<FilterableValue>
+    ) : SheetSelectViewState()
 }
 
 sealed class SheetError {
@@ -228,10 +252,6 @@ sealed class SheetError {
     class SomeCellEntriesMissing(val count: Int) : SheetError()
 }
 
-sealed class UserFilter {
-    class Show(val value: String) : UserFilter()
-    class Exclude(val value: String) : UserFilter()
-}
 
 enum class ColumnLabel {
     FirstName, LastName, CellPhone
@@ -239,7 +259,7 @@ enum class ColumnLabel {
 
 /**
  * Useful for showing loading state to user and deflecting certain user input when a long running operation is already in
- * progress-- Google Drive/Sheets operations in particular ≤(👀)≥
+ * progress-- Google Drive/Sheets operations in particular ≤(👀 )≥
  */
 sealed interface Loadable {
     val isLoading: Boolean

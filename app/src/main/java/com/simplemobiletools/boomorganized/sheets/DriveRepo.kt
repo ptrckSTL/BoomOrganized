@@ -1,4 +1,4 @@
-package com.simplemobiletools.boomorganized.oauth
+package com.simplemobiletools.boomorganized.sheets
 
 import android.accounts.Account
 import android.os.Parcel
@@ -32,11 +32,14 @@ object DriveRepo {
         return credential
     }
 
-    suspend fun getListOfFiles(sinceWhen: Date = Date(), searchByName: String = ""): FileList? {
+    suspend fun getListOfFiles(
+        sinceWhen: Date = Date(),
+        searchByName: String = ""
+    ): FileList? {
         //https://developers.google.com/drive/v3/web/search-parameters
         val modifiedTime = DateTime(sinceWhen).toStringRfc3339()
         val query = "mimeType='application/vnd.google-apps.spreadsheet' and modifiedTime >= '$modifiedTime'"
-
+        listOf(1).indices.reversed()
         return withContext(Dispatchers.IO) {
             Drive.Builder(httpTransport, jsonFactory, credential()).build()
                 .files()
@@ -56,9 +59,6 @@ object DriveRepo {
         return if (subSheets.size == 1) {
             try {
                 val rows = fetchSheetValues(sheets, ssID, subSheets.first().properties.title)
-                rows.forEach {
-                    println("PROW - $it")
-                }
                 if (rows.isEmpty()) throw IllegalStateException()
                 val sheet = rows.toDriveSheet()
                 SheetState.SelectedSheet(sheet)
@@ -72,9 +72,6 @@ object DriveRepo {
 
     suspend fun getSpreadsheetValuesFromSubSheet(ssID: String, name: String): SheetState {
         val rows = fetchSheetValues(sheets, ssID, name)
-        rows.forEach {
-            println("PROW - $it")
-        }
         return try {
             SheetState.SelectedSheet(rows.toDriveSheet())
         } catch (e: Exception) {
@@ -94,112 +91,36 @@ object DriveRepo {
 
 sealed class SheetState {
     class MultipleSheets(val ssID: String, val sheetNames: List<String>) : SheetState()
-    class SelectedSheet(val sheet: DriveSheet) : SheetState()
+    class SelectedSheet(val sheet: UserSheet) : SheetState()
     object InvalidSheet : SheetState()
 }
 
-data class DriveSheet(
-    val headers: List<String>,
-    val rows: List<List<String>>,
-    val firstNameIndex: Int = -1,
-    val lastNameIndex: Int = -1,
-    val cellIndex: Int = -1,
+data class UserSheet(
+    val rows: List<List<String>>
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
-        parcel.createStringArrayList() ?: emptyList(),
         parcel.createStringArrayList()?.map { it.split(",") } ?: emptyList(),
-        parcel.readInt(),
-        parcel.readInt(),
-        parcel.readInt()
+
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
-        parcel.writeStringList(headers)
         parcel.writeStringList(rows.map { it.joinToString(",") })
-        parcel.writeInt(firstNameIndex)
-        parcel.writeInt(lastNameIndex)
-        parcel.writeInt(cellIndex)
     }
 
     override fun describeContents(): Int {
         return 0
     }
 
-    companion object CREATOR : Parcelable.Creator<DriveSheet> {
-        override fun createFromParcel(parcel: Parcel): DriveSheet {
-            return DriveSheet(parcel)
+    companion object CREATOR : Parcelable.Creator<UserSheet> {
+        override fun createFromParcel(parcel: Parcel): UserSheet {
+            return UserSheet(parcel)
         }
 
-        override fun newArray(size: Int): Array<DriveSheet?> {
+        override fun newArray(size: Int): Array<UserSheet?> {
             return arrayOfNulls(size)
         }
     }
 }
 
-fun List<List<String>>.toDriveSheet() = try {
-    val header = first()
-    var defaultCellIndex = -1
-    var defaultFirstNameIndex = -1
-    var defaultLastNameIndex = -1
-    header.forEachIndexed { index, s ->
-        when {
-            Regex("(?i)first( name)?|firstName").matches(s) -> defaultFirstNameIndex = index
-            Regex("(?i)last( name)?|lastName").matches(s) -> defaultLastNameIndex = index
-            Regex("(?i)cell(ular)?|phone(1|\\s)?|mobile").matches(s) -> defaultCellIndex = index
-        }
-    }
-    DriveSheet(
-        firstNameIndex = defaultFirstNameIndex,
-        lastNameIndex = defaultLastNameIndex,
-        cellIndex = defaultCellIndex,
-        headers = first(),
-        rows = subList(1, size)
-    )
-} catch (e: Exception) {
-    throw SpreadsheetParsingException
-}
+fun List<List<String>>.toDriveSheet() = UserSheet(this)
 
-object SpreadsheetParsingException : Exception()
-
-fun DriveSheet.update(label: ColumnLabel?, index: Int) = when (label) {
-    ColumnLabel.FirstName -> {
-        val updateLastName = if (lastNameIndex == index) -1 else this.lastNameIndex
-        val updateCellIndex = if (cellIndex == index) -1 else this.cellIndex
-        copy(
-            lastNameIndex = updateLastName,
-            cellIndex = updateCellIndex,
-            firstNameIndex = index
-        )
-    }
-
-    ColumnLabel.LastName -> {
-        val updateFirstName = if (firstNameIndex == index) -1 else this.firstNameIndex
-        val updateCellIndex = if (cellIndex == index) -1 else this.cellIndex
-        copy(
-            firstNameIndex = updateFirstName,
-            cellIndex = updateCellIndex,
-            lastNameIndex = index
-        )
-    }
-
-    ColumnLabel.CellPhone -> {
-        val updateLastName = if (lastNameIndex == index) -1 else this.lastNameIndex
-        val updateFirstName = if (firstNameIndex == index) -1 else this.firstNameIndex
-        copy(
-            lastNameIndex = updateLastName,
-            firstNameIndex = updateFirstName,
-            cellIndex = index
-        )
-    }
-
-    null -> {
-        val updateFirstName = if (firstNameIndex == index) -1 else this.firstNameIndex
-        val updateCellIndex = if (cellIndex == index) -1 else this.cellIndex
-        val updateLastName = if (lastNameIndex == index) -1 else this.lastNameIndex
-        copy(
-            firstNameIndex = updateFirstName,
-            cellIndex = updateCellIndex,
-            lastNameIndex = updateLastName
-        )
-    }
-}

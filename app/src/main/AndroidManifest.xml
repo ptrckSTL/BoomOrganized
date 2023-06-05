@@ -2,7 +2,6 @@
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.simplemobiletools.smsmessenger"
     android:installLocation="auto"
     >
     <uses-permission android:name="android.permission.INTERNET" />
@@ -55,7 +54,7 @@
             android:theme="@style/SplashTheme"
             />
         <activity
-            android:name="com.simplemobiletools.boomorganized.oauth.GoogleSheetSelectionActivity"
+            android:name="com.simplemobiletools.boomorganized.sheets.GoogleSheetSelectionActivity"
             android:exported="false"
             android:theme="@style/AppTheme"
             />

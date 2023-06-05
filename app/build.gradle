@@ -59,10 +59,6 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
-    lintOptions {
-        checkReleaseBuilds false
-        abortOnError false
-    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -83,6 +79,11 @@ android {
         resources {
             excludes += "META-INF/*"
         }
+    }
+    namespace 'com.simplemobiletools.smsmessenger'
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
     }
 }
 

@@ -15,33 +15,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.simplemobiletools.boomorganized.BoomOrganizedViewState
-import com.simplemobiletools.boomorganized.CsvState
-import com.simplemobiletools.boomorganized.oauth.DriveSheet
-import com.simplemobiletools.boomorganized.oauth.GoogleSheetSelectionContract
+import com.simplemobiletools.boomorganized.UserSheetState
+import com.simplemobiletools.boomorganized.sheets.UserSheet
+import com.simplemobiletools.boomorganized.sheets.GoogleSheetSelectionContract
 import com.simplemobiletools.boomorganized.rows
 
 @Composable
 fun BoomOrganizedGetCSVAndPreview(
     modifier: Modifier = Modifier,
-    state: BoomOrganizedViewState.CsvAndPreview,
+    state: BoomOrganizedViewState.PreviewOutgoing,
     onAddCsv: () -> Unit,
-    onGoogleSheetSelected: (DriveSheet?) -> Unit,
+    onGoogleSheetSelected: (UserSheet?) -> Unit,
 ) {
-    var driveSheetState by remember { mutableStateOf<DriveSheet?>(null) }
+    var userSheetState by remember { mutableStateOf<UserSheet?>(null) }
     val launcher = rememberLauncherForActivityResult(GoogleSheetSelectionContract()) { result ->
-        driveSheetState = result
+        userSheetState = result
     }
 
-    if (driveSheetState != null) {
-        onGoogleSheetSelected(driveSheetState)
-        driveSheetState = null
+    if (userSheetState != null) {
+        onGoogleSheetSelected(userSheetState)
+        userSheetState = null
     }
     Column(modifier = modifier.padding(horizontal = 12.dp)) {
         BOButton(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 24.dp),
-            text = if (state.csvState is CsvState.Found) {
+            text = if (state.userSheetState is UserSheetState.Found) {
                 "Choose a different CSV"
             } else {
                 "Choose a CSV"
@@ -55,11 +55,11 @@ fun BoomOrganizedGetCSVAndPreview(
             text = "Use a Google Sheet",
             onClick = { launcher.launch(Unit) }
         )
-        state.csvState.rows?.let { Text("Found ${state.csvState.rows} entries") }
-        val preview = when (state.csvState) {
-            is CsvState.Error -> state.csvState.msg
-            is CsvState.Found -> state.preview
-            CsvState.None -> state.preview
+        state.userSheetState.rows?.let { Text("Found ${state.userSheetState.rows} entries") }
+        val preview = when (state.userSheetState) {
+            is UserSheetState.Error -> state.userSheetState.msg
+            is UserSheetState.Found -> state.preview
+            UserSheetState.None -> state.preview
         }
         Spacer(Modifier.height(20.dp))
         RapWithImagePreview(preview = preview, photoUri = state.photoUri)

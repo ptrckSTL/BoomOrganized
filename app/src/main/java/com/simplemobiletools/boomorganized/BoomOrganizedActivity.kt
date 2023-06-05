@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat.startActivityForResult
 import com.simplemobiletools.boomorganized.composables.AppLogo
 import com.simplemobiletools.boomorganized.composables.BOButton
 import com.simplemobiletools.boomorganized.composables.BoomOrganizedExecuting
@@ -41,7 +42,9 @@ import com.simplemobiletools.boomorganized.composables.BoomOrganizedRapAndPhoto
 import com.simplemobiletools.boomorganized.composables.BoomOrganizedResumePending
 import com.simplemobiletools.boomorganized.composables.BoomOrganizingComplete
 import com.simplemobiletools.boomorganized.composables.ProgressRows
-import com.simplemobiletools.boomorganized.oauth.DriveSheet
+import com.simplemobiletools.boomorganized.sheets.ColumnLabel
+import com.simplemobiletools.boomorganized.sheets.GridScreen
+import com.simplemobiletools.boomorganized.sheets.UserSheet
 import com.simplemobiletools.boomorganized.ui.theme.BoomOrganizedTheme
 import com.simplemobiletools.smsmessenger.extensions.subscriptionManagerCompat
 import com.simplemobiletools.smsmessenger.helpers.PICK_CSV_INTENT
@@ -80,7 +83,9 @@ class BoomOrganizedActivity : ComponentActivity() {
                         resumePending = viewModel::resumeSession,
                         freshStart = viewModel::freshStart,
                         onPauseOrganizing = viewModel::pauseOrganizing,
-                        handleGoogleSheetResult = viewModel::handleGoogleSheetResult
+                        handleGoogleSheetResult = viewModel::handleGoogleSheetResult,
+                        onFilterCreated = {}, // todo
+                        onLabelAdded = fun(one: Int, two: ColumnLabel?){}, // todo
                     )
                 }
             }
@@ -157,7 +162,9 @@ fun BoomOrganizedScreen(
     freshStart: () -> Unit,
     onScriptEdit: (String) -> Unit,
     onPauseOrganizing: () -> Unit,
-    handleGoogleSheetResult: (DriveSheet?) -> Unit,
+    onLabelAdded: (Int, ColumnLabel?) -> Unit,
+    onFilterCreated: (Int) -> Unit,
+    handleGoogleSheetResult: (UserSheet?) -> Unit,
 ) {
     val state by viewState.collectAsState()
     var counts by remember { mutableStateOf(ContactCounts()) }
@@ -189,7 +196,7 @@ fun BoomOrganizedScreen(
                     onScriptEdit = onScriptEdit
                 )
 
-                is BoomOrganizedViewState.CsvAndPreview -> BoomOrganizedGetCSVAndPreview(
+                is BoomOrganizedViewState.PreviewOutgoing -> BoomOrganizedGetCSVAndPreview(
                     state = currentState,
                     onAddCsv = onAddCsv,
                     onGoogleSheetSelected = handleGoogleSheetResult
@@ -214,6 +221,15 @@ fun BoomOrganizedScreen(
 
                 BoomOrganizedViewState.Uninitiated -> Unit
                 is BoomOrganizedViewState.OrganizationComplete -> BoomOrganizingComplete()
+
+                is BoomOrganizedViewState.RequestLabels -> GridScreen(
+                    grid = currentState.sheet,
+                    error = currentState.error,
+                    onLabelSelected = onLabelAdded,
+                    onCreateFilter = onFilterCreated ,
+                )
+
+                BoomOrganizedViewState.SelectSource -> {}
             }
         }
     }, navigation = {
@@ -248,8 +264,8 @@ fun BoomOrganizedScreen(
                     }
                 }
 
-                is BoomOrganizedViewState.CsvAndPreview -> {
-                    if (vState.csvState is CsvState.Found) {
+                is BoomOrganizedViewState.PreviewOutgoing -> {
+                    if (vState.userSheetState is UserSheetState.Found) {
                         BOButton(text = "Commence to Organizing", onClick = goNext)
                     }
                 }
@@ -271,6 +287,12 @@ fun BoomOrganizedScreen(
                 }
 
                 is BoomOrganizedViewState.Uninitiated -> Unit
+                is BoomOrganizedViewState.RequestLabels -> {
+                    GridScreen(grid = vState.sheet, error = vState.error , onLabelSelected =onLabelAdded , onCreateFilter =onFilterCreated )
+                }
+                BoomOrganizedViewState.SelectSource -> {
+
+                }
             }
         }
     })
@@ -313,9 +335,9 @@ fun ScreenPreview() {
 fun CsvPreview() {
     Column {
         BoomOrganizedGetCSVAndPreview(
-            state = BoomOrganizedViewState.CsvAndPreview(
+            state = BoomOrganizedViewState.PreviewOutgoing(
                 photoUri = null,
-                csvState = CsvState.Found(
+                userSheetState = UserSheetState.Found(
                     listOf(),
                     1,
                     2,

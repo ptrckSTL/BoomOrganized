@@ -1,36 +1,18 @@
-package com.simplemobiletools.boomorganized.oauth
+@file:OptIn(ExperimentalFoundationApi::class)
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+package com.simplemobiletools.boomorganized.sheets
+
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Divider
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -41,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.simplemobiletools.boomorganized.BoomScaffold
+import com.simplemobiletools.boomorganized.FilterableUserSheet
 import com.simplemobiletools.boomorganized.composables.BOButton
 import com.simplemobiletools.boomorganized.formatDateTime
 import com.simplemobiletools.boomorganized.ui.theme.Purple200
@@ -53,6 +36,9 @@ fun SheetSelectionScreen(
     onSheetSelected: (SheetListItem) -> Unit,
     onSubSheetSelected: (ssID: String, subSheetName: String) -> Unit,
     onLabelSelected: (Int, ColumnLabel?) -> Unit,
+    onAddInclusiveFilter: (index: Int, value: String) -> Unit,
+    onAddExclusiveFilter: (index: Int, value: String) -> Unit,
+    onCreateFilter: (Int) -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onForceClose: () -> Unit,
@@ -81,8 +67,10 @@ fun SheetSelectionScreen(
                 }
 
                 is SheetSelectViewState.SheetSelected -> GridScreen(
-                    viewState = viewState,
-                    onLabelSelected = onLabelSelected
+                    grid = viewState.sheet,
+                    error = viewState.error,
+                    onLabelSelected = onLabelSelected,
+                    onCreateFilter = onCreateFilter,
                 )
 
                 is SheetSelectViewState.SheetsFound -> SheetListScreen(
@@ -100,6 +88,11 @@ fun SheetSelectionScreen(
                 }
 
                 is SheetSelectViewState.Complete -> {}
+                is SheetSelectViewState.FilterSetup -> SheetValueFilterScreen(
+                    filterViewState = viewState,
+                    addToInclude = onAddInclusiveFilter,
+                    addToExclude = onAddExclusiveFilter
+                )
             }
         },
         navigation = {
@@ -237,11 +230,13 @@ fun SheetItem(modifier: Modifier = Modifier, item: SheetListItem) {
 
 @Composable
 fun GridScreen(
-    viewState: SheetSelectViewState.SheetSelected,
+    grid: FilterableUserSheet,
+    error: SheetError,
     onLabelSelected: (Int, ColumnLabel?) -> Unit,
+    onCreateFilter: (Int) -> Unit,
 ) {
     Column {
-        Text("Found ${viewState.sheet.rows.size} entries, displaying first 10")
+        Text("Found ${grid.rows.size} entries, displaying first 10")
         Column(
             Modifier
                 .weight(1f)
@@ -249,25 +244,27 @@ fun GridScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             Row {
-                viewState.sheet.headers.forEachIndexed { index, text ->
+                grid.headers.forEachIndexed { index, text ->
                     Column {
                         HeaderCell(
                             text = text,
                             columnIndex = index,
-                            label = columnLabel(index, viewState.sheet),
-                            onLabelSelected = onLabelSelected
+                            label = columnLabel(index, grid),
+                            onLabelSelected = onLabelSelected,
+                            onCreateFilter = onCreateFilter
                         )
                     }
                 }
             }
-            viewState.sheet.rows.take(10).forEach { row ->
+            grid.rows.take(10).forEach { row ->
                 Row {
                     row.forEachIndexed { index, text ->
                         SheetCell(
-                            text = text,
+                            text = text.value,
                             columnIndex = index,
-                            borderColor = borderColor(viewState.sheet, index),
-                            onLabelSelected = onLabelSelected
+                            borderColor = filterBorder(grid, index),
+                            onLabelSelected = onLabelSelected,
+                            onCreateFilter = onCreateFilter
                         )
                     }
                 }
@@ -275,7 +272,7 @@ fun GridScreen(
         }
 
         Row {
-            viewState.error.text?.let { Text(it) }
+            error.text?.let { Text(it) }
         }
     }
 }
@@ -283,11 +280,14 @@ fun GridScreen(
 @Composable
 fun SheetCell(
     modifier: Modifier = Modifier,
-    borderColor: Color, text: String, fontWeight: FontWeight = FontWeight.Normal,
+    borderColor: Color,
+    text: String,
+    fontWeight: FontWeight = FontWeight.Normal,
     columnIndex: Int,
     width: Dp = 96.dp,
     height: Dp = 38.dp,
     onLabelSelected: (Int, ColumnLabel?) -> Unit,
+    onCreateFilter: (Int) -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     DropdownMenu(
@@ -317,13 +317,25 @@ fun SheetCell(
         }
     }
 
-    Text(
-        modifier = modifier
+    Cell(
+        modifier = Modifier
             .width(width)
             .height(height)
             .border(width = 1.dp, color = borderColor)
             .padding(4.dp)
-            .clickable { showMenu = true },
+            .combinedClickable(
+                onClick = { showMenu = true },
+                onLongClick = { onCreateFilter(columnIndex) }
+            ),
+        text = text,
+        fontWeight = fontWeight
+    )
+}
+
+@Composable
+fun Cell(modifier: Modifier = Modifier, text: String, fontWeight: FontWeight = FontWeight.Normal) {
+    Text(
+        modifier = modifier,
         color = Color.White,
         text = text,
         fontWeight = fontWeight
@@ -337,6 +349,7 @@ fun HeaderCell(
     columnIndex: Int,
     label: ColumnLabel?,
     onLabelSelected: (Int, ColumnLabel?) -> Unit,
+    onCreateFilter: (Int) -> Unit
 ) {
     Box {
         SheetCell(
@@ -347,6 +360,7 @@ fun HeaderCell(
             text = text,
             columnIndex = columnIndex,
             onLabelSelected = onLabelSelected,
+            onCreateFilter = onCreateFilter
         )
         label?.let {
             Row(
@@ -401,11 +415,11 @@ fun BoxScope.ConditionalLoading(isLoading: Boolean) {
 }
 
 @Composable
-fun borderColor(driveSheet: DriveSheet, index: Int) =
+fun filterBorder(userSheet: FilterableUserSheet, index: Int) =
     when {
-        driveSheet.firstNameIndex == index -> ColumnLabel.FirstName.color
-        driveSheet.lastNameIndex == index -> ColumnLabel.LastName.color
-        driveSheet.cellIndex == index -> ColumnLabel.CellPhone.color
+        userSheet.firstNameIndex == index -> ColumnLabel.FirstName.color
+        userSheet.lastNameIndex == index -> ColumnLabel.LastName.color
+        userSheet.cellIndex == index -> ColumnLabel.CellPhone.color
         else -> Color.White
     }
 
@@ -423,11 +437,11 @@ val ColumnLabel.color: Color
         ColumnLabel.CellPhone -> Purple200
     }
 
-fun columnLabel(index: Int, driveSheet: DriveSheet): ColumnLabel? =
+fun columnLabel(index: Int, userSheet: FilterableUserSheet): ColumnLabel? =
     when (index) {
-        driveSheet.cellIndex -> ColumnLabel.CellPhone
-        driveSheet.firstNameIndex -> ColumnLabel.FirstName
-        driveSheet.lastNameIndex -> ColumnLabel.LastName
+        userSheet.cellIndex -> ColumnLabel.CellPhone
+        userSheet.firstNameIndex -> ColumnLabel.FirstName
+        userSheet.lastNameIndex -> ColumnLabel.LastName
         else -> null
     }
 

@@ -19,14 +19,12 @@ abstract class SendStatusReceiver : BroadcastReceiver() {
     abstract fun updateAppDatabase(context: Context, intent: Intent, receiverResultCode: Int)
 
     override fun onReceive(context: Context, intent: Intent) {
-        println("PATRICK - onReceive found")
         val resultCode = resultCode
         ensureBackgroundThread {
             updateAndroidDatabase(context, intent, resultCode)
             updateAppDatabase(context, intent, resultCode)
         }
-        println("PATRICK - resultCode? $resultCode")
-        if (resultCode == Activity.RESULT_OK) {
+7        if (resultCode == Activity.RESULT_OK) {
             intent.extras?.getString(BoomOrganizerWorker.BOOM_ORGANIZED_ENTRY)?.let {
                 GlobalScope.launch(Dispatchers.IO) {
                     context.boomOrganizedDB.updateMessageStatusToSent(it)

@@ -1,4 +1,4 @@
-package com.simplemobiletools.boomorganized.oauth
+package com.simplemobiletools.boomorganized.sheets
 
 import android.app.Activity
 import android.content.Context
@@ -45,24 +45,22 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
                 finish()
             },
             onSuccess = {
-                println("patrick - callback success called")
                 lifecycleScope.launch {
-                 val account = GoogleSignIn.getLastSignedInAccount(this@GoogleSheetSelectionActivity)
+                    val account = GoogleSignIn.getLastSignedInAccount(this@GoogleSheetSelectionActivity)
 
-                            DriveRepo.selectedAccount = account!!.account
-                            lifecycleScope.launch(Dispatchers.IO) {
-                                viewModel.getRecentSheets(exceptionHandler)
-                            }
-                        }
+                    DriveRepo.selectedAccount = account!!.account
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        viewModel.getRecentSheets(exceptionHandler)
+                    }
+                }
 
-                })
+            })
     }
 
     private fun initiateGoogleSignIn() {
         lifecycleScope.launch(Dispatchers.Main + exceptionHandler) {
             val cachedSignIn = withContext(Dispatchers.IO) { GoogleSignIn.getLastSignedInAccount(this@GoogleSheetSelectionActivity) }
             if (cachedSignIn?.account == null || cachedSignIn.isExpired) {
-                println("PATRICK - requesting sign in...")
                 requestSignIn()
             } else {
                 DriveRepo.selectedAccount = cachedSignIn.account
@@ -88,8 +86,9 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
                     val state = viewState.value
                     if (state is SheetSelectViewState.Complete) {
                         setResult(RESULT_OK, Intent().apply {
-                            putExtra(GOOGLE_SHEET_RESULT, state.driveSheet)
-                        })
+                            putExtra(GOOGLE_SHEET_RESULT, state.userSheet)
+                        }
+                        )
                         finish()
                     }
                     SheetSelectionScreen(
@@ -99,10 +98,13 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
                         onLabelSelected = viewModel::onUpdateColumnLabel,
                         onPrevious = viewModel::onNavigationBack,
                         onNext = viewModel::onNavigateNext,
+                        onAddExclusiveFilter = viewModel::addExcludeFilter,
+                        onAddInclusiveFilter = viewModel::addIncludeFilter,
                         onForceClose = {
                             setResult(Activity.RESULT_CANCELED)
                             finish()
-                        }
+                        },
+                        onCreateFilter = viewModel::onCreateFilter
                     )
                 }
             }

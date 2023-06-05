@@ -1,4 +1,4 @@
-package com.simplemobiletools.boomorganized.oauth
+package com.simplemobiletools.boomorganized.sheets
 
 import android.app.Activity
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -6,12 +6,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.Scopes
 import com.google.android.gms.common.api.Scope
-import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.api.services.sheets.v4.SheetsScopes
 import com.google.gson.annotations.SerializedName
 import com.simplemobiletools.boomorganized.requestVariousScopes
-import com.simplemobiletools.smsmessenger.activities.MainActivity
-import kotlinx.coroutines.CoroutineExceptionHandler
 
 data class OauthClient(
     @SerializedName("installed")
