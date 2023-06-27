@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -41,20 +42,18 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
     private val signInCallback: ActivityResultLauncher<Intent> = getResultFromActivity { intent ->
         resultCode.onComplete(
             onFailure = {
-                setResult(GOOGLE_SIGN_IN_FAILURE)
-                finish()
+                Toast.makeText(this@GoogleSheetSelectionActivity, "Sign in failed", Toast.LENGTH_LONG).show()
             },
             onSuccess = {
                 lifecycleScope.launch {
                     val account = GoogleSignIn.getLastSignedInAccount(this@GoogleSheetSelectionActivity)
-
                     DriveRepo.selectedAccount = account!!.account
                     lifecycleScope.launch(Dispatchers.IO) {
                         viewModel.getRecentSheets(exceptionHandler)
                     }
                 }
-
-            })
+            }
+        )
     }
 
     private fun initiateGoogleSignIn() {
@@ -79,32 +78,26 @@ class GoogleSheetSelectionActivity : ComponentActivity() {
         setContent {
             BoomOrganizedTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colors.background
+                    modifier = Modifier.fillMaxSize(), color = MaterialTheme.colors.background
                 ) {
                     val viewState = viewModel.viewState.collectAsState()
                     val state = viewState.value
                     if (state is SheetSelectViewState.Complete) {
-                        setResult(RESULT_OK, Intent().apply {
+                        setResult(
+                            RESULT_OK, Intent().apply {
                             putExtra(GOOGLE_SHEET_RESULT, state.userSheet)
-                        }
-                        )
+                        })
                         finish()
                     }
                     SheetSelectionScreen(
                         viewState = state,
                         onSheetSelected = viewModel::onSheetSelected,
                         onSubSheetSelected = viewModel::onSubSheetSelected,
-                        onLabelSelected = viewModel::onUpdateColumnLabel,
                         onPrevious = viewModel::onNavigationBack,
-                        onNext = viewModel::onNavigateNext,
-                        onAddExclusiveFilter = viewModel::addExcludeFilter,
-                        onAddInclusiveFilter = viewModel::addIncludeFilter,
                         onForceClose = {
                             setResult(Activity.RESULT_CANCELED)
                             finish()
                         },
-                        onCreateFilter = viewModel::onCreateFilter
                     )
                 }
             }

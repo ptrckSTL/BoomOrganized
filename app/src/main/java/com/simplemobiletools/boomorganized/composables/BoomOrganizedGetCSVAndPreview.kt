@@ -1,33 +1,24 @@
 package com.simplemobiletools.boomorganized.composables
 
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.simplemobiletools.boomorganized.BoomOrganizedViewState
+import com.simplemobiletools.boomorganized.FilterableUserSheet
 import com.simplemobiletools.boomorganized.UserSheetState
-import com.simplemobiletools.boomorganized.sheets.UserSheet
 import com.simplemobiletools.boomorganized.sheets.GoogleSheetSelectionContract
-import com.simplemobiletools.boomorganized.rows
 
 @Composable
 fun BoomOrganizedGetCSVAndPreview(
     modifier: Modifier = Modifier,
     state: BoomOrganizedViewState.PreviewOutgoing,
     onAddCsv: () -> Unit,
-    onGoogleSheetSelected: (UserSheet?) -> Unit,
+    onGoogleSheetSelected: (FilterableUserSheet?) -> Unit,
 ) {
-    var userSheetState by remember { mutableStateOf<UserSheet?>(null) }
+    var userSheetState by remember { mutableStateOf<FilterableUserSheet?>(null) }
     val launcher = rememberLauncherForActivityResult(GoogleSheetSelectionContract()) { result ->
         userSheetState = result
     }
@@ -55,7 +46,7 @@ fun BoomOrganizedGetCSVAndPreview(
             text = "Use a Google Sheet",
             onClick = { launcher.launch(Unit) }
         )
-        state.userSheetState.rows?.let { Text("Found ${state.userSheetState.rows} entries") }
+        (state.userSheetState as? UserSheetState.Found)?.let { Text("Found ${it.filterableUserSheet.rows.size} entries") }
         val preview = when (state.userSheetState) {
             is UserSheetState.Error -> state.userSheetState.msg
             is UserSheetState.Found -> state.preview

@@ -23,17 +23,13 @@ import com.simplemobiletools.smsmessenger.interfaces.BoomStatus
 import com.simplemobiletools.smsmessenger.interfaces.OrganizedContact
 import com.simplemobiletools.smsmessenger.messaging.sendMessageCompat
 import com.simplemobiletools.smsmessenger.models.Attachment
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.withIndex
-import kotlinx.coroutines.withContext
 
 @SuppressLint("MissingPermission")
 class BoomOrganizerWorker(private val appContext: Context, parameters: WorkerParameters) :
@@ -161,12 +157,13 @@ object BoomOrganizedWorkRepo : OrganizedContactsRepo {
         workState to contacts
     }
 
+
     init {
         dao.observeAllPendingContactsAsFlow()
             .onEach {
                 contactCounts.value = dao.getPendingContacts().toContactCount()
             }
-            .launchIn(GlobalScope)
+            .launchIn(CoroutineScope(Dispatchers.IO))
     }
 
     fun setPaused() {

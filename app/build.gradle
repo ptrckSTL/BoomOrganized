@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
+apply plugin: 'app.cash.molecule'
 
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
@@ -14,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId "com.simplemobiletools.smsmessenger"
-        minSdkVersion 26
+        minSdkVersion 29
         targetSdkVersion 33
         versionCode 78
         versionName "5.18.1"
@@ -77,7 +78,7 @@ android {
     }
     packagingOptions {
         resources {
-            excludes += "META-INF/*"
+            excludes += "META-INF/DEPENDENCIES"
         }
     }
     namespace 'com.simplemobiletools.smsmessenger'

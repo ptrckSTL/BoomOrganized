@@ -2,6 +2,7 @@
 
 package com.simplemobiletools.boomorganized.sheets
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,7 +24,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.simplemobiletools.boomorganized.BoomScaffold
-import com.simplemobiletools.boomorganized.FilterableUserSheet
 import com.simplemobiletools.boomorganized.composables.BOButton
 import com.simplemobiletools.boomorganized.formatDateTime
 import com.simplemobiletools.boomorganized.ui.theme.Purple200
@@ -35,105 +35,65 @@ fun SheetSelectionScreen(
     viewState: SheetSelectViewState,
     onSheetSelected: (SheetListItem) -> Unit,
     onSubSheetSelected: (ssID: String, subSheetName: String) -> Unit,
-    onLabelSelected: (Int, ColumnLabel?) -> Unit,
-    onAddInclusiveFilter: (index: Int, value: String) -> Unit,
-    onAddExclusiveFilter: (index: Int, value: String) -> Unit,
-    onCreateFilter: (Int) -> Unit,
     onPrevious: () -> Unit,
-    onNext: () -> Unit,
     onForceClose: () -> Unit,
 ) {
-    BoomScaffold(
-        content = {
-            Spacer(Modifier.height(32.dp))
-            when (viewState) {
-                is SheetSelectViewState.ForceClose -> {
-                    onForceClose()
-                }
+    BoomScaffold(content = {
+        BackHandler { onPrevious() }
+        Spacer(Modifier.height(32.dp))
+        when (viewState) {
+            is SheetSelectViewState.ForceClose -> {
+                onForceClose()
+            }
 
-                is SheetSelectViewState.Error -> {
-                    Box(
-                        modifier = Modifier
-                            .padding(24.dp)
-                            .fillMaxSize()
+            is SheetSelectViewState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxSize()
+                ) {
+                    Text(
+                        modifier = Modifier.align(Alignment.Center), color = Color.White, text = viewState.msg ?: "Error!"
                     )
-                    {
-                        Text(
-                            modifier = Modifier.align(Alignment.Center),
-                            color = Color.White,
-                            text = viewState.msg ?: "Error!"
+                }
+            }
+
+            is SheetSelectViewState.SheetsFound -> SheetListScreen(
+                viewState = viewState, onSheetSelected = onSheetSelected
+            )
+
+            is SheetSelectViewState.SubSheetsFound -> SubSheetsFound(
+                viewState, onSubSheetSelected = onSubSheetSelected
+            )
+
+            SheetSelectViewState.Uninitiated -> {
+                Box(Modifier.fillMaxSize()) { ConditionalLoading(true) }
+            }
+
+            is SheetSelectViewState.Complete -> {}
+        }
+    }, navigation = {
+        Row(
+            verticalAlignment = Alignment.CenterVertically, modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+        ) {
+            when (viewState) {
+                is SheetSelectViewState.Error,
+                is SheetSelectViewState.SheetsFound,
+                is SheetSelectViewState.SubSheetsFound,
+                -> {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                        BOButton(
+                            onClick = onPrevious, text = if (viewState is SheetSelectViewState.SubSheetsFound) "Previous" else "Cancel"
                         )
                     }
                 }
 
-                is SheetSelectViewState.SheetSelected -> GridScreen(
-                    grid = viewState.sheet,
-                    error = viewState.error,
-                    onLabelSelected = onLabelSelected,
-                    onCreateFilter = onCreateFilter,
-                )
-
-                is SheetSelectViewState.SheetsFound -> SheetListScreen(
-                    viewState = viewState,
-                    onSheetSelected = onSheetSelected
-                )
-
-                is SheetSelectViewState.SubSheetsFound -> SubSheetsFound(
-                    viewState,
-                    onSubSheetSelected = onSubSheetSelected
-                )
-
-                SheetSelectViewState.Uninitiated -> {
-                    Box(Modifier.fillMaxSize()) { ConditionalLoading(true) }
-                }
-
-                is SheetSelectViewState.Complete -> {}
-                is SheetSelectViewState.FilterSetup -> SheetValueFilterScreen(
-                    filterViewState = viewState,
-                    addToInclude = onAddInclusiveFilter,
-                    addToExclude = onAddExclusiveFilter
-                )
-            }
-        },
-        navigation = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp)
-            ) {
-                when (viewState) {
-                    is SheetSelectViewState.SheetSelected -> {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            BOButton(
-                                onClick = onPrevious,
-                                text = "Previous"
-                            )
-
-                            BOButton(
-                                text = "Next",
-                                onClick = onNext
-                            )
-                        }
-                    }
-
-                    is SheetSelectViewState.Error,
-                    is SheetSelectViewState.SheetsFound,
-                    is SheetSelectViewState.SubSheetsFound,
-                    -> {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-                            BOButton(
-                                onClick = onPrevious,
-                                text = if (viewState is SheetSelectViewState.SubSheetsFound) "Previous" else "Cancel"
-                            )
-                        }
-                    }
-
-                    else -> {}
-                }
+                else -> {}
             }
         }
-    )
+    })
 }
 
 @Composable
@@ -154,13 +114,10 @@ fun SheetListScreen(viewState: SheetSelectViewState.SheetsFound, onSheetSelected
             )
             LazyColumn(modifier = Modifier.padding(8.dp)) {
                 items(viewState.sheets) {
-                    SheetItem(
-                        modifier = if (!viewState.isLoading) Modifier.clickable {
-                            onSheetSelected(it)
-                        }
-                        else Modifier,
-                        item = it
-                    )
+                    SheetItem(modifier = if (!viewState.isLoading) Modifier.clickable {
+                        onSheetSelected(it)
+                    }
+                    else Modifier, item = it)
                     Spacer(Modifier.height(4.dp))
                 }
             }
@@ -190,12 +147,8 @@ fun SubSheetsFound(
             LazyColumn(modifier = Modifier.padding(8.dp)) {
                 items(viewState.sheets) {
                     SheetItem(
-                        modifier = Modifier.clickable { onSubSheetSelected(viewState.ssID, it) },
-                        item = SheetListItem(
-                            title = it,
-                            id = "",
-                            description = null,
-                            date = null
+                        modifier = Modifier.clickable { onSubSheetSelected(viewState.ssID, it) }, item = SheetListItem(
+                            title = it, id = "", description = null, date = null
                         )
                     )
                     Spacer(Modifier.height(4.dp))
@@ -215,14 +168,10 @@ fun SheetItem(modifier: Modifier = Modifier, item: SheetListItem) {
     ) {
         Column {
             Text(
-                fontSize = 18.sp,
-                text = item.title,
-                color = Color.White
+                fontSize = 18.sp, text = item.title, color = Color.White
             )
             Text(
-                text = item.date?.value?.formatDateTime() ?: "",
-                fontSize = 12.sp,
-                color = Color.White
+                text = item.date?.value?.formatDateTime() ?: "", fontSize = 12.sp, color = Color.White
             )
         }
     }
@@ -230,49 +179,80 @@ fun SheetItem(modifier: Modifier = Modifier, item: SheetListItem) {
 
 @Composable
 fun GridScreen(
-    grid: FilterableUserSheet,
-    error: SheetError,
+    headers: List<String>,
+    rows: List<List<String>>,
+    firstNameIndex: Int,
+    lastNameIndex: Int,
+    cellIndex: Int, error: SheetError,
     onLabelSelected: (Int, ColumnLabel?) -> Unit,
     onCreateFilter: (Int) -> Unit,
 ) {
+    val horizontalScrollState = rememberScrollState()
     Column {
-        Text("Found ${grid.rows.size} entries, displaying first 10")
-        Column(
-            Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState())
-                .verticalScroll(rememberScrollState())
-        ) {
-            Row {
-                grid.headers.forEachIndexed { index, text ->
-                    Column {
-                        HeaderCell(
-                            text = text,
-                            columnIndex = index,
-                            label = columnLabel(index, grid),
-                            onLabelSelected = onLabelSelected,
-                            onCreateFilter = onCreateFilter
-                        )
+        Text("Found ${rows.size} entries")
+        Column(Modifier.weight(1f)) {
+            LazyColumn {
+                stickyHeader {
+                    Row(modifier = Modifier.horizontalScroll(horizontalScrollState)) {
+                        headers.forEachIndexed { index, s ->
+                            HeaderCell(
+                                text = s,
+                                columnIndex = index,
+                                label = columnLabel(index, cellIndex, lastNameIndex, firstNameIndex),
+                                onLabelSelected = onLabelSelected,
+                                onCreateFilter = onCreateFilter
+                            )
+                        }
                     }
                 }
-            }
-            grid.rows.take(10).forEach { row ->
-                Row {
-                    row.forEachIndexed { index, text ->
-                        SheetCell(
-                            text = text.value,
-                            columnIndex = index,
-                            borderColor = filterBorder(grid, index),
-                            onLabelSelected = onLabelSelected,
-                            onCreateFilter = onCreateFilter
-                        )
-                    }
+                items(rows) {
+                    CellRow(
+                        modifier = Modifier.horizontalScroll(state = horizontalScrollState),
+                        row = it,
+                        firstNameIndex = firstNameIndex,
+                        lastNameIndex = lastNameIndex,
+                        cellIndex = cellIndex,
+                        onLabelSelected = onLabelSelected,
+                        onCreateFilter = onCreateFilter
+                    )
                 }
             }
         }
+        error.text?.let { errorText ->
+            Row(
+                modifier = Modifier
+                    .padding()
+                    .fillMaxWidth()
+                    .background(Color.Red)
+                    .padding(12.dp)
+            ) {
+                Text(
+                    fontSize = 16.sp, text = errorText
+                )
+            }
+        }
+    }
+}
 
-        Row {
-            error.text?.let { Text(it) }
+@Composable
+fun CellRow(
+    modifier: Modifier = Modifier,
+    row: List<String>,
+    firstNameIndex: Int,
+    lastNameIndex: Int,
+    cellIndex: Int,
+    onLabelSelected: (Int, ColumnLabel?) -> Unit,
+    onCreateFilter: (Int) -> Unit
+) {
+    Row(modifier = modifier) {
+        row.forEachIndexed { index, text ->
+            SheetCell(
+                text = text,
+                columnIndex = index,
+                borderColor = filterBorder(firstNameIndex, lastNameIndex, cellIndex, index),
+                onLabelSelected = onLabelSelected,
+                onCreateFilter = onCreateFilter
+            )
         }
     }
 }
@@ -290,30 +270,20 @@ fun SheetCell(
     onCreateFilter: (Int) -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    DropdownMenu(
-        expanded = showMenu,
-        onDismissRequest = { showMenu = false }
-    ) {
+    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
         Column {
             ColumnLabel.values().forEach { label ->
-                LabelSelectionRow(
-                    label = label,
-                    onSelected = {
-                        showMenu = false
-                        onLabelSelected(
-                            columnIndex,
-                            label
-                        )
-                    }
-                )
-            }
-            LabelSelectionRow(
-                label = null,
-                onSelected = {
+                LabelSelectionRow(label = label, onSelected = {
                     showMenu = false
-                    onLabelSelected(columnIndex, null)
-                }
-            )
+                    onLabelSelected(
+                        columnIndex, label
+                    )
+                })
+            }
+            LabelSelectionRow(label = null, onSelected = {
+                showMenu = false
+                onLabelSelected(columnIndex, null)
+            })
         }
     }
 
@@ -323,22 +293,14 @@ fun SheetCell(
             .height(height)
             .border(width = 1.dp, color = borderColor)
             .padding(4.dp)
-            .combinedClickable(
-                onClick = { showMenu = true },
-                onLongClick = { onCreateFilter(columnIndex) }
-            ),
-        text = text,
-        fontWeight = fontWeight
+            .combinedClickable(onClick = { showMenu = true }, onLongClick = { onCreateFilter(columnIndex) }), text = text, fontWeight = fontWeight
     )
 }
 
 @Composable
 fun Cell(modifier: Modifier = Modifier, text: String, fontWeight: FontWeight = FontWeight.Normal) {
     Text(
-        modifier = modifier,
-        color = Color.White,
-        text = text,
-        fontWeight = fontWeight
+        modifier = modifier, color = Color.White, text = text, fontSize = 14.sp, fontWeight = fontWeight
     )
 }
 
@@ -351,7 +313,7 @@ fun HeaderCell(
     onLabelSelected: (Int, ColumnLabel?) -> Unit,
     onCreateFilter: (Int) -> Unit
 ) {
-    Box {
+    Box(modifier = modifier.background(Color.DarkGray)) {
         SheetCell(
             modifier = modifier.background(Color.DarkGray),
             height = 40.dp,
@@ -372,8 +334,7 @@ fun HeaderCell(
                     .padding(8.dp)
             ) {
                 Text(
-                    color = Color.White,
-                    text = it.text
+                    color = Color.White, text = it.text
                 )
             }
         }
@@ -389,12 +350,9 @@ fun LabelSelectionRow(label: ColumnLabel?, onSelected: (ColumnLabel?) -> Unit) {
     Column(
         Modifier
             .width(200.dp)
-            .clickable { onSelected(label) }
-    ) {
+            .clickable { onSelected(label) }) {
         Text(
-            fontSize = 18.sp,
-            text = label?.text ?: "None",
-            modifier = Modifier
+            fontSize = 18.sp, text = label?.text ?: "None", modifier = Modifier
                 .padding(4.dp)
                 .width(200.dp)
         )
@@ -415,13 +373,12 @@ fun BoxScope.ConditionalLoading(isLoading: Boolean) {
 }
 
 @Composable
-fun filterBorder(userSheet: FilterableUserSheet, index: Int) =
-    when {
-        userSheet.firstNameIndex == index -> ColumnLabel.FirstName.color
-        userSheet.lastNameIndex == index -> ColumnLabel.LastName.color
-        userSheet.cellIndex == index -> ColumnLabel.CellPhone.color
-        else -> Color.White
-    }
+fun filterBorder(firstNameIndex: Int, lastNameIndex: Int, cellIndex: Int, index: Int) = when {
+    firstNameIndex == index -> ColumnLabel.FirstName.color
+    lastNameIndex == index -> ColumnLabel.LastName.color
+    cellIndex == index -> ColumnLabel.CellPhone.color
+    else -> Color.White
+}
 
 val ColumnLabel.text: String
     get() = when (this) {
@@ -430,26 +387,24 @@ val ColumnLabel.text: String
         ColumnLabel.CellPhone -> "Cell phone"
     }
 val ColumnLabel.color: Color
-    @Composable
-    get() = when (this) {
+    @Composable get() = when (this) {
         ColumnLabel.FirstName -> Purple500
         ColumnLabel.LastName -> Purple700
         ColumnLabel.CellPhone -> Purple200
     }
 
-fun columnLabel(index: Int, userSheet: FilterableUserSheet): ColumnLabel? =
-    when (index) {
-        userSheet.cellIndex -> ColumnLabel.CellPhone
-        userSheet.firstNameIndex -> ColumnLabel.FirstName
-        userSheet.lastNameIndex -> ColumnLabel.LastName
-        else -> null
-    }
+fun columnLabel(index: Int, cellIndex: Int, lastNameIndex: Int, firstNameIndex: Int): ColumnLabel? = when (index) {
+    cellIndex -> ColumnLabel.CellPhone
+    firstNameIndex -> ColumnLabel.FirstName
+    lastNameIndex -> ColumnLabel.LastName
+    else -> null
+}
 
 val SheetError.text: String?
     get() = when (this) {
         SheetError.NoCellSelected -> "A label for the cell column is required"
-        SheetError.NoFirstName -> "You didn't select a first name. If that's okay hit next again."
-        SheetError.NoLastName -> "You didn't select a last name. If that's okay hit next again."
+        SheetError.NoFirstName -> "A firstName template exists in your rap but no label was found. Label the first name column or go back and edit your rap."
+        SheetError.NoLastName -> "You didn't select a last name, but the lastName template exists in your rap. Select a last name column or go back and edit your rap."
         SheetError.None -> null
         is SheetError.SomeCellEntriesMissing -> "$this rows have a missing or malformed cell phone number. These will be purged from the rolls. If that's okay hit next again."
     }

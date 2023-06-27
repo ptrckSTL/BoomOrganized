@@ -9,6 +9,7 @@ import com.simplemobiletools.commons.helpers.ensureBackgroundThread
 import com.simplemobiletools.smsmessenger.extensions.boomOrganizedDB
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
 abstract class SendStatusReceiver : BroadcastReceiver() {
@@ -24,9 +25,9 @@ abstract class SendStatusReceiver : BroadcastReceiver() {
             updateAndroidDatabase(context, intent, resultCode)
             updateAppDatabase(context, intent, resultCode)
         }
-7        if (resultCode == Activity.RESULT_OK) {
+        if (resultCode == Activity.RESULT_OK) {
             intent.extras?.getString(BoomOrganizerWorker.BOOM_ORGANIZED_ENTRY)?.let {
-                GlobalScope.launch(Dispatchers.IO) {
+                MainScope().launch(Dispatchers.IO) {
                     context.boomOrganizedDB.updateMessageStatusToSent(it)
                 }
             }
