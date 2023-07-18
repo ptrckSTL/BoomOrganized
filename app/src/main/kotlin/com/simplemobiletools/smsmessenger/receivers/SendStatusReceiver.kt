@@ -9,6 +9,7 @@ import com.simplemobiletools.commons.helpers.ensureBackgroundThread
 import com.simplemobiletools.smsmessenger.extensions.boomOrganizedDB
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
 abstract class SendStatusReceiver : BroadcastReceiver() {
@@ -19,16 +20,14 @@ abstract class SendStatusReceiver : BroadcastReceiver() {
     abstract fun updateAppDatabase(context: Context, intent: Intent, receiverResultCode: Int)
 
     override fun onReceive(context: Context, intent: Intent) {
-        println("PATRICK - onReceive found")
         val resultCode = resultCode
         ensureBackgroundThread {
             updateAndroidDatabase(context, intent, resultCode)
             updateAppDatabase(context, intent, resultCode)
         }
-        println("PATRICK - resultCode? $resultCode")
         if (resultCode == Activity.RESULT_OK) {
             intent.extras?.getString(BoomOrganizerWorker.BOOM_ORGANIZED_ENTRY)?.let {
-                GlobalScope.launch(Dispatchers.IO) {
+                MainScope().launch(Dispatchers.IO) {
                     context.boomOrganizedDB.updateMessageStatusToSent(it)
                 }
             }

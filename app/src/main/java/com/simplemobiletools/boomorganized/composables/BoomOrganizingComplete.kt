@@ -18,6 +18,5 @@ fun BoomOrganizingComplete() {
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Image(modifier = Modifier.size(100.dp), painter = painterResource(R.drawable.hell_yeah), contentDescription = null)
         Text(text = "That's organizing, baby.")
-
     }
 }

@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
+apply plugin: 'app.cash.molecule'
 
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
@@ -14,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId "com.simplemobiletools.smsmessenger"
-        minSdkVersion 26
+        minSdkVersion 29
         targetSdkVersion 33
         versionCode 78
         versionName "5.18.1"
@@ -59,16 +60,14 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
-    lintOptions {
-        checkReleaseBuilds false
-        abortOnError false
-    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
     kotlinOptions {
         jvmTarget = '1.8'
+        freeCompilerArgs = ["-Xcontext-receivers"]
+
     }
 
     buildFeatures {
@@ -79,13 +78,34 @@ android {
     }
     packagingOptions {
         resources {
-            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += "META-INF/DEPENDENCIES"
         }
+    }
+    namespace 'com.simplemobiletools.smsmessenger'
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
     }
 }
 
 dependencies {
-    implementation 'com.github.SimpleMobileTools:Simple-Commons:9f0c466018'
+    implementation 'com.google.android.gms:play-services-auth:20.3.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.6.4'
+
+    // https://developers.google.com/gsuite/guides/android
+    // https://mvnrepository.com/artifact/com.google.api-client/google-api-client-android
+    implementation('com.google.api-client:google-api-client-android:2.0.0') {
+        exclude group: 'com.google.guava'
+        exclude module: 'guava-jdk5'
+    }
+
+    implementation('com.google.apis:google-api-services-drive:v3-rev20220815-2.0.0') {
+        exclude group: 'org.apache.httpcomponents'
+    }
+
+    // https://mvnrepository.com/artifact/com.google.apis/google-api-services-sheets
+    implementation 'com.google.apis:google-api-services-sheets:v4-rev20220927-2.0.0'
+
     implementation 'org.greenrobot:eventbus:3.3.1'
     implementation 'com.github.tibbi:IndicatorFastScroll:4524cd0b61'
     implementation 'com.github.tibbi:android-smsmms:33fcaf94d9'
@@ -98,9 +118,11 @@ dependencies {
     implementation "androidx.compose.ui:ui-tooling-preview:$compose_ui_version"
     implementation 'androidx.compose.material:material:1.3.1'
     implementation 'androidx.lifecycle:lifecycle-process:2.5.1'
-    implementation 'io.coil-kt:coil-compose:2.2.2'
+    implementation 'io.coil-kt:coil-compose:2.3.0'
+    implementation "io.coil-kt:coil-gif:2.3.0"
     implementation 'com.github.doyaaaaaken:kotlin-csv-jvm:1.7.0'
     implementation 'androidx.work:work-runtime-ktx:2.7.1'
+    implementation project(path: ':commons')
 
 
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_ui_version"

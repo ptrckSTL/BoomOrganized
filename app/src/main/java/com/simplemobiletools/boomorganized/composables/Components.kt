@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -77,8 +78,8 @@ fun EditScriptBox(
 fun BOButton(modifier: Modifier = Modifier, text: String, onClick: () -> Unit) {
     Button(
         border = BorderStroke(1.dp, color = colorResource(id = R.color.md_amber_800_dark)),
-        colors = ButtonDefaults.buttonColors(Color.Black),
-        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(Color(121212)),
+        modifier = modifier.widthIn(min = 100.dp),
         onClick = { onClick() },
         content = { Text(color = colorResource(id = R.color.md_orange_500_dark), text = text) }
     )
@@ -88,14 +89,14 @@ fun BOButton(modifier: Modifier = Modifier, text: String, onClick: () -> Unit) {
 fun RapWithImagePreview(preview: String, photoUri: Uri?) {
     Column {
         Text(
-            modifier = Modifier.padding(start = 8.dp),
-            fontSize = 10.sp,
-            text = "Preview:"
+            modifier = Modifier.padding(start = 12.dp),
+            fontSize = 12.sp,
+            text = "Preview"
         )
         Column(
             modifier = Modifier
                 .border(BorderStroke(1.dp, Color.DarkGray), RoundedCornerShape(size = 8.dp))
-                .padding(8.dp)
+                .padding(12.dp)
                 .fillMaxWidth()
         ) {
             Text(
@@ -135,24 +136,26 @@ fun BoxScope.AttachmentPreview(photoUri: Uri?) {
 @Composable
 fun AppLogo() {
     val headerColor = if (isSystemInDarkTheme()) Color.White else Color.Black
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = "boom", fontSize = 32.sp, color = headerColor, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Thin)
-        Image(
+    Column {
+        Row(
             modifier = Modifier
-                .rotate(295f)
-                .size(44.dp)
-                .padding(start = 4.dp, end = 12.dp, bottom = 2.dp),
-            colorFilter = ColorFilter.tint(color = headerColor),
-            painter = rememberVectorPainter(image = ImageVector.vectorResource(id = R.drawable.rolling_bomb_svgrepo_com)),
-            contentDescription = null
-        )
-        Text(text = "rganized", fontSize = 32.sp, color = headerColor, modifier = Modifier.offset(x = (-12).dp), fontWeight = FontWeight.Bold)
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "boom", fontSize = 32.sp, color = headerColor, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Thin)
+            Image(
+                modifier = Modifier
+                    .rotate(295f)
+                    .size(44.dp)
+                    .padding(start = 4.dp, end = 12.dp, bottom = 2.dp),
+                colorFilter = ColorFilter.tint(color = headerColor),
+                painter = rememberVectorPainter(image = ImageVector.vectorResource(id = R.drawable.rolling_bomb_svgrepo_com)),
+                contentDescription = null
+            )
+            Text(text = "rganized", fontSize = 32.sp, color = headerColor, modifier = Modifier.offset(x = (-12).dp), fontWeight = FontWeight.Bold)
+        }
     }
 }
 
